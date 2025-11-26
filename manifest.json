@@ -11,9 +11,9 @@
   },
   "permissions": [
     "messagesRead",
+    "messagesUpdate",
     "menus",
     "notifications",
-    "permissions",
     "storage"
   ],
   "optional_host_permissions": [
