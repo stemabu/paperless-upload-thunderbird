@@ -36,6 +36,19 @@ browser.runtime.onInstalled.addListener(async () => {
     }
   });
 
+  // New: Email to Paperless-ngx option
+  browser.menus.create({
+    id: "email-to-paperless",
+    title: "E-Mail an Paperless-ngx senden",
+    contexts: ["message_list"],
+    icons: {
+      "32": "icons/icon-32.png",
+      "16": "icons/icon-16.png",
+      "64": "icons/icon-64.png",
+      "128": "icons/icon-128.png"
+    }
+  });
+
   // Separator
   browser.menus.create({
     id: "separator",
@@ -51,6 +64,8 @@ browser.menus.onClicked.addListener(async (info, tab) => {
     await handleQuickPdfUpload(info);
   } else if (info.menuItemId === "advanced-upload-pdf-paperless") {
     await handleAdvancedPdfUpload(info);
+  } else if (info.menuItemId === "email-to-paperless") {
+    await handleEmailToPaperless(info);
   }
 });
 
@@ -202,6 +217,365 @@ async function openAdvancedUploadDialog(message, pdfAttachments) {
     console.error("Error opening dialog:", error);
     showNotification("Error opening upload dialog", "error");
   }
+}
+
+// Handle email to Paperless-ngx upload
+async function handleEmailToPaperless(info) {
+  try {
+    const messages = info.selectedMessages.messages;
+    if (!messages || messages.length === 0) {
+      showNotification("Keine Nachricht ausgewählt", "error");
+      return;
+    }
+
+    // For now, just handle the first message
+    const message = messages[0];
+    await openEmailUploadDialog(message);
+
+  } catch (error) {
+    console.error("Error handling email to Paperless:", error);
+    showNotification("Fehler beim Verarbeiten der E-Mail", "error");
+  }
+}
+
+// Open email upload dialog
+async function openEmailUploadDialog(message) {
+  try {
+    // Get all attachments (not just PDFs)
+    const attachments = await browser.messages.listAttachments(message.id);
+
+    // Get email body (full message)
+    const fullMessage = await browser.messages.getFull(message.id);
+    const emailBody = extractEmailBody(fullMessage);
+
+    // Store data for the dialog to access
+    await browser.storage.local.set({
+      emailUploadData: {
+        message: {
+          id: message.id,
+          subject: message.subject,
+          author: message.author,
+          recipients: message.recipients || [],
+          date: message.date
+        },
+        attachments: attachments.map(att => ({
+          name: att.name,
+          partName: att.partName,
+          size: att.size,
+          contentType: att.contentType
+        })),
+        emailBody: emailBody
+      }
+    });
+
+    // Open the email upload dialog
+    const dialogUrl = browser.runtime.getURL("email-upload-dialog.html");
+    browser.windows.create({
+      url: dialogUrl,
+      type: "popup",
+      width: 550,
+      height: 700
+    });
+
+  } catch (error) {
+    console.error("Error opening email upload dialog:", error);
+    showNotification("Fehler beim Öffnen des Dialogs", "error");
+  }
+}
+
+// Extract email body from full message
+function extractEmailBody(fullMessage) {
+  let body = '';
+  
+  // Recursive function to find the body part
+  function findBody(part) {
+    if (part.body) {
+      // Prefer text/plain, but use text/html as fallback
+      if (part.contentType === 'text/plain' || !part.contentType) {
+        body = part.body;
+        return true;
+      }
+      if (part.contentType === 'text/html' && !body) {
+        body = part.body;
+      }
+    }
+    
+    if (part.parts) {
+      for (const subPart of part.parts) {
+        if (findBody(subPart)) {
+          return true;
+        }
+      }
+    }
+    return false;
+  }
+  
+  findBody(fullMessage);
+  return body;
+}
+
+// Get or create custom field by name
+async function getOrCreateCustomField(config, fieldName, fieldType, selectOptions = null) {
+  try {
+    // First, try to find existing custom field
+    const response = await fetch(`${config.url}/api/custom_fields/`, {
+      headers: { 'Authorization': `Token ${config.token}` }
+    });
+
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}`);
+    }
+
+    const data = await response.json();
+    const existingField = data.results.find(f => f.name === fieldName);
+
+    if (existingField) {
+      return existingField;
+    }
+
+    // Create new custom field if not found
+    const createBody = {
+      name: fieldName,
+      data_type: fieldType
+    };
+
+    if (selectOptions) {
+      createBody.extra_data = { select_options: selectOptions };
+    }
+
+    const createResponse = await fetch(`${config.url}/api/custom_fields/`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Token ${config.token}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(createBody)
+    });
+
+    if (!createResponse.ok) {
+      const errorText = await createResponse.text();
+      throw new Error(`Failed to create custom field: ${errorText}`);
+    }
+
+    return await createResponse.json();
+
+  } catch (error) {
+    console.error(`Error getting/creating custom field "${fieldName}":`, error);
+    throw error;
+  }
+}
+
+// Update document custom fields
+async function updateDocumentCustomFields(config, documentId, customFields) {
+  try {
+    const response = await fetch(`${config.url}/api/documents/${documentId}/`, {
+      method: 'PATCH',
+      headers: {
+        'Authorization': `Token ${config.token}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ custom_fields: customFields })
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`HTTP ${response.status}: ${errorText}`);
+    }
+
+    return await response.json();
+  } catch (error) {
+    console.error('Error updating document custom fields:', error);
+    throw error;
+  }
+}
+
+// Upload email PDF and attachments with custom fields
+async function uploadEmailWithAttachments(messageData, emailPdfData, selectedAttachments, direction) {
+  const config = await getPaperlessConfig();
+  if (!config.url || !config.token) {
+    throw new Error("Paperless-ngx ist nicht konfiguriert");
+  }
+
+  try {
+    // Get or create custom fields
+    const relatedDocsField = await getOrCreateCustomField(
+      config,
+      'Dazugehörende Dokumente',
+      'documentlink'
+    );
+
+    const directionField = await getOrCreateCustomField(
+      config,
+      'Richtung',
+      'select',
+      ['Eingang', 'Ausgang']
+    );
+
+    // Prepare direction custom field value
+    const directionCustomField = {
+      field: directionField.id,
+      value: [direction]
+    };
+
+    // Upload email PDF
+    showNotification("E-Mail-PDF wird hochgeladen...", "info");
+    
+    // Convert base64 back to blob
+    const emailPdfBlob = base64ToBlob(emailPdfData.blob, 'application/pdf');
+    
+    const emailFormData = new FormData();
+    emailFormData.append('document', emailPdfBlob, emailPdfData.filename);
+    emailFormData.append('title', emailPdfData.filename.replace(/\.pdf$/i, ''));
+
+    const emailUploadResponse = await fetch(`${config.url}/api/documents/post_document/`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Token ${config.token}`
+      },
+      body: emailFormData
+    });
+
+    if (!emailUploadResponse.ok) {
+      const errorText = await emailUploadResponse.text();
+      throw new Error(`E-Mail-Upload fehlgeschlagen: ${errorText}`);
+    }
+
+    // Get the task ID from the response
+    const emailTaskId = await emailUploadResponse.text();
+    console.log("Email upload task ID:", emailTaskId);
+
+    // Wait for document to be processed and get the document ID
+    const emailDocId = await waitForDocumentId(config, emailTaskId.replace(/"/g, ''));
+
+    if (!emailDocId) {
+      throw new Error("E-Mail-Dokument konnte nicht gefunden werden");
+    }
+
+    // Upload selected attachments
+    const attachmentDocIds = [];
+    
+    for (const attachment of selectedAttachments) {
+      showNotification(`Anhang wird hochgeladen: ${attachment.name}...`, "info");
+      
+      // Get attachment file
+      const attachmentFile = await browser.messages.getAttachmentFile(
+        messageData.id,
+        attachment.partName
+      );
+
+      const attachmentFormData = new FormData();
+      attachmentFormData.append('document', attachmentFile, attachment.name);
+      attachmentFormData.append('title', attachment.name.replace(/\.[^/.]+$/, ''));
+
+      const attachmentResponse = await fetch(`${config.url}/api/documents/post_document/`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Token ${config.token}`
+        },
+        body: attachmentFormData
+      });
+
+      if (!attachmentResponse.ok) {
+        console.error(`Failed to upload attachment: ${attachment.name}`);
+        continue;
+      }
+
+      const attachmentTaskId = await attachmentResponse.text();
+      const attachmentDocId = await waitForDocumentId(config, attachmentTaskId.replace(/"/g, ''));
+
+      if (attachmentDocId) {
+        attachmentDocIds.push(attachmentDocId);
+      }
+    }
+
+    // Update custom fields for all documents
+    showNotification("Verknüpfungen werden erstellt...", "info");
+
+    // Update email document with links to attachments and direction
+    const emailCustomFields = [directionCustomField];
+    if (attachmentDocIds.length > 0) {
+      emailCustomFields.push({
+        field: relatedDocsField.id,
+        value: attachmentDocIds
+      });
+    }
+    await updateDocumentCustomFields(config, emailDocId, emailCustomFields);
+
+    // Update each attachment with link to email and direction
+    for (const attachmentDocId of attachmentDocIds) {
+      const attachmentCustomFields = [
+        directionCustomField,
+        {
+          field: relatedDocsField.id,
+          value: [emailDocId]
+        }
+      ];
+      await updateDocumentCustomFields(config, attachmentDocId, attachmentCustomFields);
+    }
+
+    const totalDocs = 1 + attachmentDocIds.length;
+    showNotification(`✅ ${totalDocs} Dokument(e) erfolgreich hochgeladen!`, "success");
+
+    return {
+      success: true,
+      emailDocId: emailDocId,
+      attachmentDocIds: attachmentDocIds
+    };
+
+  } catch (error) {
+    console.error("Error uploading email with attachments:", error);
+    throw error;
+  }
+}
+
+// Wait for document to be processed and return the document ID
+async function waitForDocumentId(config, taskId, maxAttempts = 30, delayMs = 1000) {
+  for (let attempt = 0; attempt < maxAttempts; attempt++) {
+    try {
+      // Check task status
+      const taskResponse = await fetch(`${config.url}/api/tasks/?task_id=${taskId}`, {
+        headers: { 'Authorization': `Token ${config.token}` }
+      });
+
+      if (taskResponse.ok) {
+        const taskData = await taskResponse.json();
+        
+        if (taskData.length > 0) {
+          const task = taskData[0];
+          
+          if (task.status === 'SUCCESS' && task.related_document) {
+            // Extract document ID from the related_document URL
+            const docIdMatch = task.related_document.match(/\/api\/documents\/(\d+)\//);
+            if (docIdMatch) {
+              return parseInt(docIdMatch[1], 10);
+            }
+          } else if (task.status === 'FAILURE') {
+            console.error("Task failed:", task.result);
+            return null;
+          }
+        }
+      }
+
+      // Wait before next attempt
+      await new Promise(resolve => setTimeout(resolve, delayMs));
+    } catch (error) {
+      console.error("Error checking task status:", error);
+    }
+  }
+
+  console.warn("Timeout waiting for document ID");
+  return null;
+}
+
+// Convert base64 to Blob
+function base64ToBlob(base64, mimeType) {
+  const byteCharacters = atob(base64);
+  const byteNumbers = new Array(byteCharacters.length);
+  for (let i = 0; i < byteCharacters.length; i++) {
+    byteNumbers[i] = byteCharacters.charCodeAt(i);
+  }
+  const byteArray = new Uint8Array(byteNumbers);
+  return new Blob([byteArray], { type: mimeType });
 }
 
 async function uploadPdfToPaperless(message, attachment, options = {}) {
@@ -434,6 +808,30 @@ browser.runtime.onMessage.addListener(async (message, sender, sendResponse) => {
     } catch (error) {
       sendResponse({ success: false, error: error.message });
     }
+    return true;
+  }
+
+  // Handle email upload with attachments
+  if (message.action === "uploadEmailWithAttachments") {
+    (async () => {
+      try {
+        const { messageData, emailPdf, selectedAttachments, direction } = message;
+        console.log('📧 Background: Processing email upload');
+
+        const result = await uploadEmailWithAttachments(
+          messageData,
+          emailPdf,
+          selectedAttachments,
+          direction
+        );
+
+        sendResponse(result);
+      } catch (error) {
+        console.error("❌ Background: Error in email upload:", error);
+        sendResponse({ success: false, error: error.message });
+      }
+    })();
+
     return true;
   }
 });
