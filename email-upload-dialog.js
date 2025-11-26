@@ -145,7 +145,7 @@ function setupEventListeners() {
 
 // Generate PDF from email
 function generateEmailPdf() {
-  // eslint-disable-next-line no-undef
+  // jsPDF is loaded from jspdf.umd.min.js as window.jspdf
   const { jsPDF } = window.jspdf;
   const doc = new jsPDF({
     orientation: 'portrait',

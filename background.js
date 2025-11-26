@@ -1,6 +1,10 @@
 // Background script for Paperless-ngx PDF Uploader
 console.log("Paperless PDF Uploader loaded!");
 
+// Configuration constants for document processing
+const DOCUMENT_PROCESSING_MAX_ATTEMPTS = 30;
+const DOCUMENT_PROCESSING_DELAY_MS = 1000;
+
 let currentPdfAttachments = [];
 let currentMessage = null;
 
@@ -241,7 +245,8 @@ async function handleEmailToPaperless(info) {
 // Open email upload dialog
 async function openEmailUploadDialog(message) {
   try {
-    // Get all attachments (not just PDFs)
+    // Get all attachments (not just PDFs) - for email upload, we allow uploading
+    // any attachment type since the email itself is converted to PDF
     const attachments = await browser.messages.listAttachments(message.id);
 
     // Get email body (full message)
@@ -529,7 +534,8 @@ async function uploadEmailWithAttachments(messageData, emailPdfData, selectedAtt
 }
 
 // Wait for document to be processed and return the document ID
-async function waitForDocumentId(config, taskId, maxAttempts = 30, delayMs = 1000) {
+// Polls the Paperless-ngx tasks API until the document is processed or timeout occurs
+async function waitForDocumentId(config, taskId, maxAttempts = DOCUMENT_PROCESSING_MAX_ATTEMPTS, delayMs = DOCUMENT_PROCESSING_DELAY_MS) {
   for (let attempt = 0; attempt < maxAttempts; attempt++) {
     try {
       // Check task status
@@ -545,6 +551,7 @@ async function waitForDocumentId(config, taskId, maxAttempts = 30, delayMs = 100
           
           if (task.status === 'SUCCESS' && task.related_document) {
             // Extract document ID from the related_document URL
+            // The API returns a URL like "/api/documents/123/" so we parse the ID from it
             const docIdMatch = task.related_document.match(/\/api\/documents\/(\d+)\//);
             if (docIdMatch) {
               return parseInt(docIdMatch[1], 10);
