@@ -1,0 +1,394 @@
+// Email upload dialog - handles converting email to PDF and uploading to Paperless-ngx
+
+let currentMessage = null;
+let currentAttachments = [];
+let emailBody = '';
+
+// Get file icon based on file extension
+function getFileIcon(filename) {
+  const ext = filename.toLowerCase().split('.').pop();
+  
+  switch (ext) {
+    case 'pdf':
+      return '📄';
+    case 'doc':
+    case 'docx':
+      return '📝';
+    case 'xls':
+    case 'xlsx':
+      return '📊';
+    case 'jpg':
+    case 'jpeg':
+    case 'png':
+    case 'gif':
+    case 'bmp':
+      return '🖼️';
+    case 'zip':
+    case 'rar':
+    case '7z':
+    case 'tar':
+    case 'gz':
+      return '📦';
+    default:
+      return '📎';
+  }
+}
+
+document.addEventListener('DOMContentLoaded', async function () {
+  await loadEmailData();
+  setupEventListeners();
+});
+
+async function loadEmailData() {
+  try {
+    const result = await browser.storage.local.get('emailUploadData');
+    const uploadData = result.emailUploadData;
+
+    if (!uploadData) {
+      showError("Keine E-Mail-Daten gefunden. Bitte versuchen Sie es erneut.");
+      return;
+    }
+
+    currentMessage = uploadData.message;
+    currentAttachments = uploadData.attachments || [];
+    emailBody = uploadData.emailBody || '';
+
+    // Populate email info
+    document.getElementById('emailFrom').textContent = currentMessage.author;
+    document.getElementById('emailSubject').textContent = currentMessage.subject;
+    document.getElementById('emailDate').textContent = new Date(currentMessage.date).toLocaleDateString('de-DE', {
+      weekday: 'long',
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+
+    // Populate attachments if any
+    if (currentAttachments.length > 0) {
+      document.getElementById('attachmentSection').style.display = 'block';
+      await populateAttachmentList();
+    }
+
+    // Show main content
+    document.getElementById('loadingSection').style.display = 'none';
+    document.getElementById('mainContent').style.display = 'block';
+
+  } catch (error) {
+    console.error('Error loading email data:', error);
+    showError('Fehler beim Laden der E-Mail-Daten: ' + error.message);
+  }
+}
+
+async function populateAttachmentList() {
+  const listContainer = document.getElementById('attachmentList');
+  listContainer.textContent = ''; // Clear existing content
+
+  for (const [index, attachment] of currentAttachments.entries()) {
+    const item = document.createElement('div');
+    item.className = 'attachment-item';
+
+    const checkbox = document.createElement('input');
+    checkbox.type = 'checkbox';
+    checkbox.className = 'attachment-checkbox';
+    checkbox.id = `attachment-${index}`;
+    checkbox.dataset.index = index;
+    checkbox.checked = true; // Default: all selected
+
+    const icon = document.createElement('span');
+    icon.className = 'attachment-icon';
+    icon.textContent = getFileIcon(attachment.name);
+
+    const infoDiv = document.createElement('div');
+    infoDiv.className = 'attachment-info';
+
+    const nameDiv = document.createElement('div');
+    nameDiv.className = 'attachment-name';
+    nameDiv.textContent = attachment.name;
+
+    const sizeDiv = document.createElement('div');
+    sizeDiv.className = 'attachment-size';
+    sizeDiv.textContent = await browser.messengerUtilities.formatFileSize(attachment.size);
+
+    infoDiv.appendChild(nameDiv);
+    infoDiv.appendChild(sizeDiv);
+    
+    item.appendChild(checkbox);
+    item.appendChild(icon);
+    item.appendChild(infoDiv);
+    listContainer.appendChild(item);
+  }
+}
+
+function setupEventListeners() {
+  // Form submission
+  document.getElementById('emailUploadForm').addEventListener('submit', handleUpload);
+
+  // Cancel button
+  document.getElementById('cancelBtn').addEventListener('click', () => {
+    window.close();
+  });
+
+  // Select all button
+  document.getElementById('selectAllBtn').addEventListener('click', () => {
+    const checkboxes = document.querySelectorAll('.attachment-checkbox');
+    checkboxes.forEach(cb => cb.checked = true);
+  });
+
+  // Select none button
+  document.getElementById('selectNoneBtn').addEventListener('click', () => {
+    const checkboxes = document.querySelectorAll('.attachment-checkbox');
+    checkboxes.forEach(cb => cb.checked = false);
+  });
+}
+
+// Generate PDF from email
+function generateEmailPdf() {
+  // jsPDF is loaded from jspdf.umd.min.js as window.jspdf
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({
+    orientation: 'portrait',
+    unit: 'mm',
+    format: 'a4'
+  });
+
+  const pageWidth = doc.internal.pageSize.getWidth();
+  const pageHeight = doc.internal.pageSize.getHeight();
+  const margin = 15;
+  const contentWidth = pageWidth - (margin * 2);
+  let yPosition = margin;
+
+  // Header background (gray)
+  doc.setFillColor(240, 240, 240);
+  
+  // Calculate header height (will be adjusted after adding content)
+  let headerHeight = 50; // Initial estimate
+  
+  // Prepare header content
+  const emailDate = new Date(currentMessage.date).toLocaleDateString('de-DE', {
+    weekday: 'long',
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit'
+  });
+
+  // Get recipients
+  const recipients = currentMessage.recipients ? currentMessage.recipients.join(', ') : '';
+
+  // Prepare attachment list
+  const selectedAttachments = getSelectedAttachments();
+  let attachmentText = '';
+  if (selectedAttachments.length > 0) {
+    attachmentText = selectedAttachments.map(att => `${getFileIcon(att.name)} ${att.name}`).join(', ');
+  }
+
+  // Calculate actual header height
+  doc.setFontSize(10);
+  const subjectLines = doc.splitTextToSize(currentMessage.subject || '', contentWidth - 50);
+  const fromLines = doc.splitTextToSize(currentMessage.author || '', contentWidth - 30);
+  const toLines = recipients ? doc.splitTextToSize(recipients, contentWidth - 30) : [];
+  const attachmentLines = attachmentText ? doc.splitTextToSize(attachmentText, contentWidth - 50) : [];
+  
+  headerHeight = 20 + // Date line + padding
+    (fromLines.length * 5) + // From lines
+    (toLines.length > 0 ? toLines.length * 5 + 5 : 5) + // To lines or spacing
+    (subjectLines.length * 6) + // Subject lines (slightly larger)
+    (attachmentLines.length > 0 ? attachmentLines.length * 5 + 5 : 0) + // Attachment lines
+    10; // Bottom padding
+
+  // Draw header background
+  doc.setFillColor(240, 240, 240);
+  doc.rect(margin, margin, contentWidth, headerHeight, 'F');
+
+  yPosition = margin + 5;
+
+  // Date line
+  doc.setFontSize(10);
+  doc.setFont('helvetica', 'bold');
+  doc.text('Datum:', margin + 5, yPosition + 4);
+  doc.setFont('helvetica', 'normal');
+  doc.text(emailDate, margin + 30, yPosition + 4);
+  yPosition += 7;
+
+  // From line
+  doc.setFont('helvetica', 'bold');
+  doc.text('Von:', margin + 5, yPosition + 4);
+  doc.setFont('helvetica', 'normal');
+  fromLines.forEach((line, index) => {
+    doc.text(line, margin + 30, yPosition + 4 + (index * 5));
+  });
+  yPosition += 7 + ((fromLines.length - 1) * 5);
+
+  // To line (if recipients exist)
+  if (recipients) {
+    doc.setFont('helvetica', 'bold');
+    doc.text('An:', margin + 5, yPosition + 4);
+    doc.setFont('helvetica', 'normal');
+    toLines.forEach((line, index) => {
+      doc.text(line, margin + 30, yPosition + 4 + (index * 5));
+    });
+    yPosition += 7 + ((toLines.length - 1) * 5);
+  }
+
+  // Subject line (bold)
+  doc.setFont('helvetica', 'bold');
+  doc.text('Betreff:', margin + 5, yPosition + 4);
+  doc.setFont('helvetica', 'bold');
+  subjectLines.forEach((line, index) => {
+    doc.text(line, margin + 30, yPosition + 4 + (index * 6));
+  });
+  yPosition += 8 + ((subjectLines.length - 1) * 6);
+
+  // Attachments line (if any)
+  if (attachmentText) {
+    doc.setFont('helvetica', 'bold');
+    doc.text('Anhänge:', margin + 5, yPosition + 4);
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(9);
+    attachmentLines.forEach((line, index) => {
+      doc.text(line, margin + 30, yPosition + 4 + (index * 5));
+    });
+    yPosition += 7 + ((attachmentLines.length - 1) * 5);
+    doc.setFontSize(10);
+  }
+
+  // Horizontal line separator
+  yPosition = margin + headerHeight + 2;
+  doc.setDrawColor(180, 180, 180);
+  doc.setLineWidth(0.5);
+  doc.line(margin, yPosition, pageWidth - margin, yPosition);
+
+  yPosition += 8;
+
+  // Email body
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(11);
+  
+  // Process email body - extract plain text if HTML
+  let bodyText = emailBody;
+  if (bodyText.includes('<html') || bodyText.includes('<body') || bodyText.includes('<div')) {
+    bodyText = extractPlainTextFromHtml(bodyText);
+  }
+
+  // Split body into lines that fit the page width
+  const bodyLines = doc.splitTextToSize(bodyText, contentWidth);
+  const lineHeight = 5;
+
+  for (const line of bodyLines) {
+    // Check if we need a new page
+    if (yPosition + lineHeight > pageHeight - margin) {
+      doc.addPage();
+      yPosition = margin;
+    }
+    
+    doc.text(line, margin, yPosition);
+    yPosition += lineHeight;
+  }
+
+  // Generate filename
+  const dateStr = new Date(currentMessage.date).toISOString().split('T')[0];
+  const safeSubject = (currentMessage.subject || 'Kein_Betreff')
+    .replace(/[^a-zA-Z0-9äöüÄÖÜß\s-]/g, '')
+    .replace(/\s+/g, '_')
+    .substring(0, 50);
+  const filename = `${dateStr}_${safeSubject}.pdf`;
+
+  return {
+    blob: doc.output('blob'),
+    filename: filename
+  };
+}
+
+// Extract plain text from HTML
+function extractPlainTextFromHtml(html) {
+  // Create a temporary element to parse HTML
+  const tempDiv = document.createElement('div');
+  tempDiv.innerHTML = html;
+  
+  // Remove script and style elements
+  const scripts = tempDiv.querySelectorAll('script, style');
+  scripts.forEach(el => el.remove());
+  
+  // Get text content
+  let text = tempDiv.textContent || tempDiv.innerText || '';
+  
+  // Clean up whitespace
+  text = text
+    .replace(/\r\n/g, '\n')
+    .replace(/\r/g, '\n')
+    .replace(/\n{3,}/g, '\n\n')
+    .replace(/[ \t]+/g, ' ')
+    .trim();
+  
+  return text;
+}
+
+// Get selected attachments
+function getSelectedAttachments() {
+  const checkboxes = document.querySelectorAll('.attachment-checkbox:checked');
+  return Array.from(checkboxes).map(cb => {
+    const index = parseInt(cb.dataset.index, 10);
+    return currentAttachments[index];
+  });
+}
+
+async function handleUpload(event) {
+  event.preventDefault();
+
+  const uploadBtn = document.getElementById('uploadBtn');
+  const originalHtml = uploadBtn.innerHTML;
+  uploadBtn.disabled = true;
+  uploadBtn.innerHTML = '⏳ Wird hochgeladen...';
+
+  try {
+    clearMessages();
+
+    const direction = document.getElementById('direction').value;
+    const selectedAttachments = getSelectedAttachments();
+
+    // Generate PDF from email
+    const { blob: pdfBlob, filename: pdfFilename } = generateEmailPdf();
+
+    // Send upload request to background script
+    const result = await browser.runtime.sendMessage({
+      action: 'uploadEmailWithAttachments',
+      messageData: currentMessage,
+      emailPdf: {
+        blob: await blobToBase64(pdfBlob),
+        filename: pdfFilename
+      },
+      selectedAttachments: selectedAttachments,
+      direction: direction
+    });
+
+    if (result.success) {
+      showSuccess('E-Mail und Anhänge wurden erfolgreich an Paperless-ngx gesendet!');
+      closeWindowWithDelay(2000);
+    } else {
+      showError('Fehler beim Upload: ' + (result.error || 'Unbekannter Fehler'));
+    }
+
+  } catch (error) {
+    console.error('Upload error:', error);
+    showError('Fehler beim Upload: ' + error.message);
+  } finally {
+    uploadBtn.disabled = false;
+    uploadBtn.innerHTML = originalHtml;
+  }
+}
+
+// Convert blob to base64 for sending via message
+async function blobToBase64(blob) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const base64 = reader.result.split(',')[1];
+      resolve(base64);
+    };
+    reader.onerror = reject;
+    reader.readAsDataURL(blob);
+  });
+}

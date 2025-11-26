@@ -1,0 +1,352 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+  <meta charset="utf-8">
+  <title>E-Mail an Paperless-ngx senden</title>
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      margin: 0;
+      padding: 20px;
+      background-color: #f8f9fa;
+      min-height: 100vh;
+    }
+
+    .container {
+      background: white;
+      padding: 25px;
+      border-radius: 8px;
+      box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+      max-width: 550px;
+      margin: 0 auto;
+    }
+
+    .header {
+      text-align: center;
+      margin-bottom: 25px;
+      padding-bottom: 15px;
+      border-bottom: 2px solid #007bff;
+    }
+
+    .header h2 {
+      margin: 0;
+      color: #007bff;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+    }
+
+    .paperless-icon {
+      width: 24px;
+      height: 24px;
+    }
+
+    .form-group {
+      margin-bottom: 20px;
+      position: relative;
+    }
+
+    .form-group label {
+      display: block;
+      margin-bottom: 6px;
+      font-weight: 600;
+      color: #495057;
+    }
+
+    .form-group input,
+    .form-group select,
+    .form-group textarea {
+      width: 100%;
+      padding: 10px;
+      border: 2px solid #e9ecef;
+      border-radius: 4px;
+      font-size: 14px;
+      transition: border-color 0.2s;
+    }
+
+    .form-group input:focus,
+    .form-group select:focus,
+    .form-group textarea:focus {
+      outline: none;
+      border-color: #007bff;
+    }
+
+    .form-group input:disabled,
+    .form-group select:disabled {
+      background-color: #e9ecef;
+      cursor: not-allowed;
+    }
+
+    .email-info {
+      background: #e7f3ff;
+      border: 1px solid #b3d9ff;
+      padding: 15px;
+      border-radius: 6px;
+      margin-bottom: 20px;
+    }
+
+    .email-info h3 {
+      margin: 0 0 10px 0;
+      color: #0056b3;
+      font-size: 16px;
+    }
+
+    .email-info-row {
+      margin: 5px 0;
+      font-size: 14px;
+    }
+
+    .email-info-row strong {
+      color: #495057;
+    }
+
+    .checkbox-group {
+      display: flex;
+      align-items: center;
+      padding: 12px;
+      background: #f8f9fa;
+      border-radius: 4px;
+      margin-bottom: 15px;
+    }
+
+    .checkbox-group input[type="checkbox"] {
+      width: auto;
+      margin-right: 10px;
+    }
+
+    .checkbox-group label {
+      margin: 0;
+      font-weight: normal;
+      cursor: pointer;
+    }
+
+    .checkbox-group.disabled {
+      opacity: 0.7;
+    }
+
+    .checkbox-group.disabled label {
+      cursor: not-allowed;
+    }
+
+    .attachment-section {
+      margin-top: 20px;
+      padding-top: 15px;
+      border-top: 1px solid #e9ecef;
+    }
+
+    .attachment-section h4 {
+      margin: 0 0 10px 0;
+      color: #495057;
+      font-size: 14px;
+    }
+
+    .attachment-list {
+      max-height: 200px;
+      overflow-y: auto;
+    }
+
+    .attachment-item {
+      display: flex;
+      align-items: center;
+      padding: 10px;
+      background: white;
+      border: 1px solid #e9ecef;
+      border-radius: 4px;
+      margin-bottom: 8px;
+    }
+
+    .attachment-item:hover {
+      background: #f8f9fa;
+    }
+
+    .attachment-checkbox {
+      width: auto !important;
+      margin-right: 10px;
+    }
+
+    .attachment-info {
+      flex: 1;
+    }
+
+    .attachment-name {
+      font-weight: 500;
+      color: #495057;
+    }
+
+    .attachment-size {
+      font-size: 12px;
+      color: #6c757d;
+      margin-top: 2px;
+    }
+
+    .attachment-icon {
+      margin-right: 8px;
+    }
+
+    .button-group {
+      display: flex;
+      gap: 10px;
+      margin-top: 25px;
+    }
+
+    .btn {
+      flex: 1;
+      padding: 12px;
+      border: none;
+      border-radius: 6px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .btn-primary {
+      background: #007bff;
+      color: white;
+    }
+
+    .btn-primary:hover {
+      background: #0056b3;
+    }
+
+    .btn-secondary {
+      background: #6c757d;
+      color: white;
+    }
+
+    .btn-secondary:hover {
+      background: #545b62;
+    }
+
+    .btn:disabled {
+      background: #e9ecef;
+      color: #6c757d;
+      cursor: not-allowed;
+    }
+
+    .loading {
+      text-align: center;
+      padding: 20px;
+      color: #6c757d;
+    }
+
+    .error {
+      background: #f8d7da;
+      color: #721c24;
+      padding: 10px;
+      border-radius: 4px;
+      margin: 10px 0;
+      border-left: 3px solid #dc3545;
+    }
+
+    .success {
+      background: #d4edda;
+      color: #155724;
+      padding: 10px;
+      border-radius: 4px;
+      margin: 10px 0;
+      border-left: 3px solid #28a745;
+    }
+
+    .help-text {
+      font-size: 12px;
+      color: #6c757d;
+      margin-top: 4px;
+    }
+
+    .controls {
+      margin: 10px 0;
+      display: flex;
+      gap: 10px;
+    }
+
+    .btn-link {
+      background: none;
+      border: none;
+      color: #007bff;
+      cursor: pointer;
+      text-decoration: underline;
+      font-size: 12px;
+      padding: 0;
+    }
+
+    .btn-link:hover {
+      color: #0056b3;
+    }
+  </style>
+</head>
+
+<body>
+  <div class="container">
+    <div class="header">
+      <h2>
+        <img src="icons/icon-32.png" alt="Paperless" class="paperless-icon">
+        E-Mail an Paperless-ngx senden
+      </h2>
+    </div>
+
+    <div id="loadingSection" class="loading">
+      <p>E-Mail-Daten werden geladen...</p>
+    </div>
+
+    <div id="mainContent" style="display: none;">
+      <div class="email-info">
+        <h3>📧 E-Mail-Informationen</h3>
+        <div class="email-info-row"><strong>Von:</strong> <span id="emailFrom"></span></div>
+        <div class="email-info-row"><strong>Betreff:</strong> <span id="emailSubject"></span></div>
+        <div class="email-info-row"><strong>Datum:</strong> <span id="emailDate"></span></div>
+      </div>
+
+      <form id="emailUploadForm">
+        <div class="checkbox-group disabled">
+          <input type="checkbox" id="saveEmailAsPdf" checked disabled>
+          <label for="saveEmailAsPdf">E-Mail als PDF speichern</label>
+        </div>
+
+        <div class="form-group">
+          <label for="direction">Richtung</label>
+          <select id="direction" name="direction">
+            <option value="Eingang" selected>Eingang</option>
+            <option value="Ausgang">Ausgang</option>
+          </select>
+          <div class="help-text">Wird für E-Mail und alle Anhänge gesetzt</div>
+        </div>
+
+        <div id="attachmentSection" class="attachment-section" style="display: none;">
+          <h4>📎 Anhänge</h4>
+          <div class="controls">
+            <button type="button" class="btn-link" id="selectAllBtn">Alle auswählen</button>
+            <button type="button" class="btn-link" id="selectNoneBtn">Keine auswählen</button>
+          </div>
+          <div id="attachmentList" class="attachment-list">
+            <!-- Attachments will be populated here -->
+          </div>
+        </div>
+
+        <div id="messageArea"></div>
+
+        <div class="button-group">
+          <button type="button" class="btn btn-secondary" id="cancelBtn">Abbrechen</button>
+          <button type="submit" class="btn btn-primary" id="uploadBtn">
+            <div style="display: flex; align-items: center; justify-content: center;">
+              <img src="icons/icon-32.png" alt="Paperless" style="height: 1.5em; width: 1.5em; margin-right: 10px;">
+              An Paperless senden
+            </div>
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script src="jspdf.umd.min.js"></script>
+  <script src="utils.js"></script>
+  <script src="email-upload-dialog.js"></script>
+</body>
+
+</html>
