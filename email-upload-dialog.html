@@ -1,0 +1,479 @@
+<!DOCTYPE html>
+<html lang="de">
+
+<head>
+  <meta charset="utf-8">
+  <title>E-Mail an Paperless-ngx senden</title>
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      margin: 0;
+      padding: 20px;
+      background-color: #f8f9fa;
+      min-height: 100vh;
+    }
+
+    .container {
+      background: white;
+      padding: 25px;
+      border-radius: 8px;
+      box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+      max-width: 550px;
+      margin: 0 auto;
+    }
+
+    .header {
+      text-align: center;
+      margin-bottom: 25px;
+      padding-bottom: 15px;
+      border-bottom: 2px solid #007bff;
+    }
+
+    .header h2 {
+      margin: 0;
+      color: #007bff;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      font-size: 18px;
+    }
+
+    .email-preview {
+      background: #f8f9fa;
+      border: 1px solid #e9ecef;
+      border-radius: 6px;
+      padding: 15px;
+      margin-bottom: 20px;
+    }
+
+    .email-preview-header {
+      font-size: 13px;
+      color: #495057;
+      margin-bottom: 5px;
+    }
+
+    .email-preview-header strong {
+      color: #212529;
+    }
+
+    .email-preview-subject {
+      font-size: 15px;
+      font-weight: 600;
+      color: #212529;
+      margin-top: 10px;
+      padding-top: 10px;
+      border-top: 1px dashed #dee2e6;
+    }
+
+    .section-header {
+      font-size: 14px;
+      font-weight: 600;
+      color: #495057;
+      margin-bottom: 10px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .attachment-selection {
+      background: #e7f3ff;
+      border: 1px solid #b3d9ff;
+      border-radius: 6px;
+      padding: 15px;
+      margin-bottom: 20px;
+    }
+
+    .attachment-list {
+      max-height: 200px;
+      overflow-y: auto;
+    }
+
+    .attachment-item {
+      display: flex;
+      align-items: center;
+      padding: 10px;
+      background: white;
+      border-radius: 4px;
+      margin-bottom: 6px;
+      border: 1px solid #dee2e6;
+    }
+
+    .attachment-item:last-child {
+      margin-bottom: 0;
+    }
+
+    .attachment-checkbox {
+      margin-right: 10px;
+      width: 16px;
+      height: 16px;
+    }
+
+    .attachment-info {
+      flex: 1;
+    }
+
+    .attachment-name {
+      font-size: 13px;
+      font-weight: 500;
+      color: #212529;
+    }
+
+    .attachment-size {
+      font-size: 11px;
+      color: #6c757d;
+    }
+
+    .attachment-icon {
+      margin-right: 6px;
+    }
+
+    .no-attachments {
+      text-align: center;
+      color: #6c757d;
+      font-size: 13px;
+      padding: 10px;
+    }
+
+    .selection-controls {
+      display: flex;
+      gap: 10px;
+      margin-top: 10px;
+      justify-content: center;
+    }
+
+    .btn-link {
+      background: none;
+      border: none;
+      color: #007bff;
+      cursor: pointer;
+      text-decoration: underline;
+      font-size: 12px;
+      padding: 4px;
+    }
+
+    .btn-link:hover {
+      color: #0056b3;
+    }
+
+    .form-group {
+      margin-bottom: 15px;
+      position: relative;
+    }
+
+    .form-group label {
+      display: block;
+      margin-bottom: 5px;
+      font-weight: 600;
+      color: #495057;
+      font-size: 13px;
+    }
+
+    .form-group input,
+    .form-group select {
+      width: 100%;
+      padding: 8px 10px;
+      border: 2px solid #e9ecef;
+      border-radius: 4px;
+      font-size: 13px;
+      transition: border-color 0.2s;
+    }
+
+    .form-group input:focus,
+    .form-group select:focus {
+      outline: none;
+      border-color: #007bff;
+    }
+
+    .help-text {
+      font-size: 11px;
+      color: #6c757d;
+      margin-top: 3px;
+    }
+
+    .checkbox-group {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px;
+      background: #f8f9fa;
+      border-radius: 4px;
+      margin-bottom: 15px;
+    }
+
+    .checkbox-group input[type="checkbox"] {
+      width: 16px;
+      height: 16px;
+    }
+
+    .checkbox-group label {
+      font-size: 13px;
+      color: #495057;
+      margin: 0;
+      cursor: pointer;
+    }
+
+    .button-group {
+      display: flex;
+      gap: 10px;
+      margin-top: 20px;
+    }
+
+    .btn {
+      flex: 1;
+      padding: 12px;
+      border: none;
+      border-radius: 6px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .btn-primary {
+      background: #007bff;
+      color: white;
+    }
+
+    .btn-primary:hover {
+      background: #0056b3;
+    }
+
+    .btn-secondary {
+      background: #6c757d;
+      color: white;
+    }
+
+    .btn-secondary:hover {
+      background: #545b62;
+    }
+
+    .btn:disabled {
+      background: #e9ecef;
+      color: #6c757d;
+      cursor: not-allowed;
+    }
+
+    .loading {
+      text-align: center;
+      padding: 30px;
+      color: #6c757d;
+    }
+
+    .loading-spinner {
+      font-size: 24px;
+      animation: spin 1s linear infinite;
+      display: inline-block;
+    }
+
+    @keyframes spin {
+      from { transform: rotate(0deg); }
+      to { transform: rotate(360deg); }
+    }
+
+    .error {
+      background: #f8d7da;
+      color: #721c24;
+      padding: 10px;
+      border-radius: 4px;
+      margin: 10px 0;
+      border-left: 3px solid #dc3545;
+      font-size: 13px;
+    }
+
+    .success {
+      background: #d4edda;
+      color: #155724;
+      padding: 10px;
+      border-radius: 4px;
+      margin: 10px 0;
+      border-left: 3px solid #28a745;
+      font-size: 13px;
+    }
+
+    .tags-input {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 5px;
+      padding: 8px;
+      border: 2px solid #e9ecef;
+      border-radius: 4px;
+      min-height: 38px;
+      background: white;
+    }
+
+    .tag-item {
+      background: #007bff;
+      color: white;
+      padding: 3px 8px;
+      border-radius: 12px;
+      font-size: 12px;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .tag-remove {
+      cursor: pointer;
+      font-weight: bold;
+    }
+
+    .tag-input {
+      border: none;
+      outline: none;
+      flex: 1;
+      min-width: 100px;
+      font-size: 13px;
+    }
+
+    .tag-suggestions {
+      position: absolute;
+      top: 100%;
+      left: 0;
+      right: 0;
+      background: white;
+      border: 1px solid #ddd;
+      border-top: none;
+      border-radius: 0 0 4px 4px;
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+      z-index: 1000;
+      max-height: 150px;
+      overflow-y: auto;
+      display: none;
+    }
+
+    .suggestion-item {
+      padding: 8px 12px;
+      cursor: pointer;
+      border-bottom: 1px solid #f0f0f0;
+      font-size: 13px;
+    }
+
+    .suggestion-item:hover,
+    .suggestion-item.selected {
+      background-color: #e3f2fd;
+    }
+
+    .suggestion-item:last-child {
+      border-bottom: none;
+    }
+
+    .suggestion-item mark {
+      background-color: #58b25a;
+      padding: 0;
+      font-weight: bold;
+    }
+
+    #messageArea {
+      margin-top: 10px;
+    }
+  </style>
+</head>
+
+<body>
+  <div class="container">
+    <div class="header">
+      <h2>
+        <span>✉️</span>
+        E-Mail an Paperless-ngx senden
+      </h2>
+    </div>
+
+    <div id="loadingSection" class="loading">
+      <div class="loading-spinner">⏳</div>
+      <p>Lade E-Mail-Daten...</p>
+    </div>
+
+    <div id="mainContent" style="display: none;">
+      <!-- Email Preview -->
+      <div class="email-preview">
+        <div class="email-preview-header">
+          <strong>Von:</strong> <span id="emailFrom"></span>
+        </div>
+        <div class="email-preview-header">
+          <strong>An:</strong> <span id="emailTo"></span>
+        </div>
+        <div class="email-preview-header">
+          <strong>Datum:</strong> <span id="emailDate"></span>
+        </div>
+        <div class="email-preview-subject">
+          📧 <span id="emailSubject"></span>
+        </div>
+      </div>
+
+      <!-- Attachment Selection -->
+      <div class="attachment-selection">
+        <div class="section-header">
+          <span>📎</span> Anhänge zum Hochladen auswählen
+        </div>
+        <div id="attachmentList" class="attachment-list">
+          <!-- Attachments will be populated here -->
+        </div>
+        <div id="noAttachments" class="no-attachments" style="display: none;">
+          Diese E-Mail hat keine Anhänge.
+        </div>
+        <div id="selectionControls" class="selection-controls" style="display: none;">
+          <button class="btn-link" id="selectAllBtn">Alle auswählen</button>
+          <button class="btn-link" id="selectNoneBtn">Keine auswählen</button>
+        </div>
+      </div>
+
+      <!-- Upload Options -->
+      <form id="uploadForm">
+        <div class="form-group">
+          <label for="documentTitle">Dokumenttitel</label>
+          <input type="text" id="documentTitle" name="title">
+          <div class="help-text">Titel für die E-Mail in Paperless-ngx</div>
+        </div>
+
+        <div class="form-group">
+          <label for="correspondent">Korrespondent</label>
+          <select id="correspondent" name="correspondent">
+            <option value="">Korrespondent auswählen...</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label for="documentType">Dokumenttyp</label>
+          <select id="documentType" name="document_type">
+            <option value="">Dokumenttyp auswählen...</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label for="tags">Tags</label>
+          <div class="tags-input" id="tagsInput">
+            <input type="text" class="tag-input" placeholder="Tags eingeben..." autocomplete="off">
+          </div>
+          <div class="tag-suggestions" id="tagSuggestions"></div>
+          <div class="help-text">Enter drücken zum Hinzufügen</div>
+        </div>
+
+        <div class="checkbox-group">
+          <input type="checkbox" id="addPaperlessTag" name="addPaperlessTag" checked>
+          <label for="addPaperlessTag">E-Mail in Thunderbird mit "Paperless" markieren</label>
+        </div>
+
+        <div id="messageArea"></div>
+
+        <div class="button-group">
+          <button type="button" class="btn btn-secondary" id="cancelBtn">Abbrechen</button>
+          <button type="submit" class="btn btn-primary" id="uploadBtn">
+            📤 An Paperless-ngx senden
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script src="utils.js"></script>
+  <script src="email-to-pdf.js"></script>
+  <script src="fuse.min.js"></script>
+  <script src="email-upload-dialog.js"></script>
+</body>
+
+</html>

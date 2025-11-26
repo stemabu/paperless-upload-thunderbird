@@ -11,6 +11,7 @@
   },
   "permissions": [
     "messagesRead",
+    "messagesUpdate",
     "menus",
     "notifications",
     "permissions",
