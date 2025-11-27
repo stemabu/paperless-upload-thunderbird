@@ -5,6 +5,11 @@ console.log("Paperless PDF Uploader loaded!");
 const DOCUMENT_PROCESSING_MAX_ATTEMPTS = 60;
 const DOCUMENT_PROCESSING_DELAY_MS = 1000;
 
+// Configuration constants for Thunderbird tag
+const PAPERLESS_TAG_KEY = 'paperless';
+const PAPERLESS_TAG_LABEL = 'Paperless';
+const PAPERLESS_TAG_COLOR = '#17a2b8';  // teal/cyan
+
 let currentPdfAttachments = [];
 let currentMessage = null;
 
@@ -394,17 +399,80 @@ async function updateDocumentCustomFields(config, documentId, customFields) {
   }
 }
 
+// Helper function to find Paperless tag in a list of tags
+function findPaperlessTag(tags) {
+  return tags.find(tag => 
+    tag.tag.toLowerCase() === PAPERLESS_TAG_KEY || 
+    tag.key.toLowerCase() === PAPERLESS_TAG_KEY
+  );
+}
+
 // Add "Paperless" keyword to email in Thunderbird
 async function addPaperlessTagToEmail(messageId) {
-  console.log('🏷️ Skipping Paperless tag - Thunderbird API not supported');
-  console.log('🏷️ MessageId:', messageId);
+  console.log('🏷️ Adding Paperless tag to email, messageId:', messageId);
   
-  // TODO: Thunderbird's messages.update() API does not support the "keywords" property
-  // and messages.listTags() is not available in all versions.
-  // This functionality is disabled until a compatible API is found.
-  // Users can manually tag emails with "Paperless" in Thunderbird if needed.
-  
-  return true;
+  try {
+    // Get all existing tags in Thunderbird
+    console.log('🏷️ Fetching existing Thunderbird tags...');
+    const existingTags = await browser.messages.listTags();
+    console.log('🏷️ Existing tags:', existingTags.length, 'tags found');
+    
+    // Check if "Paperless" tag exists
+    let paperlessTag = findPaperlessTag(existingTags);
+    
+    if (!paperlessTag) {
+      // Create the "Paperless" tag if it doesn't exist
+      console.log('🏷️ Creating new "Paperless" tag...');
+      try {
+        paperlessTag = await browser.messages.createTag(
+          PAPERLESS_TAG_KEY,
+          PAPERLESS_TAG_LABEL,
+          PAPERLESS_TAG_COLOR
+        );
+        console.log('🏷️ Created tag:', paperlessTag);
+      } catch (createError) {
+        console.error('🏷️ Error creating tag:', createError);
+        // Tag might already exist, try to find it again
+        const refreshedTags = await browser.messages.listTags();
+        paperlessTag = findPaperlessTag(refreshedTags);
+        if (!paperlessTag) {
+          console.error('🏷️ Could not create or find Paperless tag');
+          return false;
+        }
+      }
+    }
+    
+    console.log('🏷️ Using Paperless tag:', paperlessTag);
+    
+    // Get current message to check existing tags
+    const message = await browser.messages.get(messageId);
+    console.log('🏷️ Current message tags:', message.tags);
+    
+    // Check if the tag is already applied
+    const tagKey = paperlessTag.key;
+    if (message.tags && message.tags.includes(tagKey)) {
+      console.log('🏷️ Email already has Paperless tag');
+      return true;
+    }
+    
+    // Add the Paperless tag to the message
+    const newTags = message.tags ? [...message.tags, tagKey] : [tagKey];
+    console.log('🏷️ Updating message with tags:', newTags);
+    
+    await browser.messages.update(messageId, { tags: newTags });
+    console.log('🏷️ ✅ Successfully added Paperless tag to email');
+    
+    return true;
+    
+  } catch (error) {
+    console.error('🏷️ ❌ Error adding Paperless tag to email:', error);
+    console.error('🏷️ Error name:', error.name);
+    console.error('🏷️ Error message:', error.message);
+    console.error('🏷️ Error stack:', error.stack);
+    
+    // Don't throw - tag assignment is not critical for upload success
+    return false;
+  }
 }
 
 // Upload email PDF and attachments with custom fields
@@ -1057,7 +1125,8 @@ browser.runtime.onMessage.addListener(async (message, sender, sendResponse) => {
 
   // Handle email upload with attachments
   if (message.action === "uploadEmailWithAttachments") {
-    (async () => {
+    // Return a promise to properly handle async response
+    const responsePromise = (async () => {
       try {
         const { messageData, emailPdf, selectedAttachments, direction } = message;
         console.log('📧 Background: Received uploadEmailWithAttachments message');
@@ -1074,14 +1143,14 @@ browser.runtime.onMessage.addListener(async (message, sender, sendResponse) => {
         );
 
         console.log('📧 Background: Upload result:', JSON.stringify(result));
-        sendResponse(result);
+        console.log('📧 Background: Returning result to dialog');
+        return result;  // Return instead of sendResponse
       } catch (error) {
         console.error("❌ Background: Error in email upload:", error);
         console.error("❌ Background: Error stack:", error.stack);
         
-        // Ensure we always send a meaningful error message
         const errorMessage = error.message || 'Unbekannter Fehler beim Upload';
-        sendResponse({ 
+        return { 
           success: false, 
           error: errorMessage,
           errorDetails: {
@@ -1089,11 +1158,20 @@ browser.runtime.onMessage.addListener(async (message, sender, sendResponse) => {
             message: error.message,
             stack: error.stack
           }
-        });
+        };
       }
     })();
 
-    return true;
+    // Send the promise result via sendResponse when resolved
+    responsePromise.then(result => {
+      console.log('📧 Background: Sending response via sendResponse:', JSON.stringify(result));
+      sendResponse(result);
+    }).catch(err => {
+      console.error('📧 Background: Promise error:', err);
+      sendResponse({ success: false, error: err.message });
+    });
+
+    return true; // Keep the message channel open for async response
   }
 });
 
