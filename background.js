@@ -1125,53 +1125,17 @@ browser.runtime.onMessage.addListener(async (message, sender, sendResponse) => {
 
   // Handle email upload with attachments
   if (message.action === "uploadEmailWithAttachments") {
-    // Return a promise to properly handle async response
-    const responsePromise = (async () => {
-      try {
-        const { messageData, emailPdf, selectedAttachments, direction } = message;
-        console.log('📧 Background: Received uploadEmailWithAttachments message');
-        console.log('📧 Background: Message ID:', messageData?.id);
-        console.log('📧 Background: Email PDF filename:', emailPdf?.filename);
-        console.log('📧 Background: Selected attachments:', selectedAttachments?.length);
-        console.log('📧 Background: Direction:', direction);
+    // For Thunderbird/Firefox, we need to return the Promise directly
+    // Using sendResponse() with return true has timing issues
+    const { messageData, emailPdf, selectedAttachments, direction } = message;
 
-        const result = await uploadEmailWithAttachments(
-          messageData,
-          emailPdf,
-          selectedAttachments,
-          direction
-        );
-
-        console.log('📧 Background: Upload result:', JSON.stringify(result));
-        console.log('📧 Background: Returning result to dialog');
-        return result;  // Return instead of sendResponse
-      } catch (error) {
-        console.error("❌ Background: Error in email upload:", error);
-        console.error("❌ Background: Error stack:", error.stack);
-        
-        const errorMessage = error.message || 'Unbekannter Fehler beim Upload';
-        return { 
-          success: false, 
-          error: errorMessage,
-          errorDetails: {
-            name: error.name,
-            message: error.message,
-            stack: error.stack
-          }
-        };
-      }
-    })();
-
-    // Send the promise result via sendResponse when resolved
-    responsePromise.then(result => {
-      console.log('📧 Background: Sending response via sendResponse:', JSON.stringify(result));
-      sendResponse(result);
-    }).catch(err => {
-      console.error('📧 Background: Promise error:', err);
-      sendResponse({ success: false, error: err.message });
-    });
-
-    return true; // Keep the message channel open for async response
+    // Return the Promise directly - the caller will receive the resolved value
+    return uploadEmailWithAttachments(
+      messageData,
+      emailPdf,
+      selectedAttachments,
+      direction
+    );
   }
 });
 
