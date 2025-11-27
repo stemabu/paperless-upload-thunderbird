@@ -256,11 +256,11 @@ function generateEmailPdf() {
   // Get recipients
   const recipients = currentMessage.recipients ? currentMessage.recipients.join(', ') : '';
 
-  // Prepare attachment list
+  // Prepare attachment list with "📎 Anhang: " prefix for each attachment
   const selectedAttachments = getSelectedAttachments();
   let attachmentText = '';
   if (selectedAttachments.length > 0) {
-    attachmentText = selectedAttachments.map(att => att.name).join(', ');
+    attachmentText = selectedAttachments.map(att => 'Anhang: ' + att.name).join(', ');
   }
 
   // Calculate actual header height with 1.3 line spacing
@@ -277,7 +277,7 @@ function generateEmailPdf() {
     (toLines.length > 0 ? toLines.length * lineHeight : 0) + // To lines
     (subjectLines.length * lineHeight) + // Subject lines
     (attachmentLines.length > 0 ? attachmentLines.length * lineHeight : 0) + // Attachment lines
-    4; // Bottom padding
+    1; // Bottom padding (reduced from 4 to 1 for ~3mm spacing to separator)
 
   // Draw header background
   doc.setFillColor(240, 240, 240);
@@ -341,7 +341,7 @@ function generateEmailPdf() {
   doc.setLineWidth(0.5);
   doc.line(margin, yPosition, pageWidth - margin, yPosition);
 
-  yPosition += 5;
+  yPosition += 3; // Reduced spacing from 5mm to 3mm after separator
 
   // Email body
   doc.setFont('helvetica', 'normal');

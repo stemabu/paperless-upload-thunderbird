@@ -29,14 +29,35 @@ function setupPlusButtons() {
   window.addEventListener('message', handlePopupMessage);
 }
 
+// Helper function to create a centered popup window
+async function createCenteredWindow(url, width, height) {
+  try {
+    const currentWindow = await browser.windows.getCurrent();
+    const left = Math.round(currentWindow.left + (currentWindow.width - width) / 2);
+    const top = Math.round(currentWindow.top + (currentWindow.height - height) / 2);
+    
+    return browser.windows.create({
+      url: url,
+      type: "popup",
+      width: width,
+      height: height,
+      left: Math.max(0, left),
+      top: Math.max(0, top)
+    });
+  } catch (error) {
+    console.warn('Could not get current window for centering:', error);
+    return browser.windows.create({
+      url: url,
+      type: "popup",
+      width: width,
+      height: height
+    });
+  }
+}
+
 async function createNewCorrespondent() {
   try {
-    const popup = await browser.windows.create({
-      url: browser.runtime.getURL('create-correspondent.html'),
-      type: 'popup',
-      width: 600,
-      height: 500
-    });
+    await createCenteredWindow(browser.runtime.getURL('create-correspondent.html'), 600, 600);
   } catch (error) {
     console.error('Error opening correspondent creation window:', error);
   }
@@ -44,12 +65,7 @@ async function createNewCorrespondent() {
 
 async function createNewDocumentType() {
   try {
-    const popup = await browser.windows.create({
-      url: browser.runtime.getURL('create-document-type.html'),
-      type: 'popup',
-      width: 600,
-      height: 500,
-    });
+    await createCenteredWindow(browser.runtime.getURL('create-document-type.html'), 600, 600);
   } catch (error) {
     console.error('Error opening document type creation window:', error);
   }
