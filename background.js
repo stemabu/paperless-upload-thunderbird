@@ -394,63 +394,40 @@ async function updateDocumentCustomFields(config, documentId, customFields) {
   }
 }
 
-// Add "Paperless" tag to email in Thunderbird
+// Add "Paperless" keyword to email in Thunderbird
 async function addPaperlessTagToEmail(messageId) {
-  console.log('🏷️ Adding Paperless tag to email, messageId:', messageId);
+  console.log('🏷️ Adding Paperless keyword to email, messageId:', messageId);
   
   try {
-    // Get existing tags in Thunderbird
-    console.log('🏷️ Fetching existing Thunderbird tags...');
-    const existingTags = await browser.messages.listTags();
-    console.log('🏷️ Existing tags:', existingTags);
-    
-    // Check if "Paperless" tag exists
-    let paperlessTag = existingTags.find(tag => tag.tag === 'Paperless' || tag.key === 'paperless');
-    
-    if (!paperlessTag) {
-      // Create the "Paperless" tag if it doesn't exist
-      console.log('🏷️ Creating new "Paperless" tag...');
-      try {
-        paperlessTag = await browser.messages.createTag('paperless', 'Paperless', '#17a2b8');
-        console.log('🏷️ Created tag:', paperlessTag);
-      } catch (createError) {
-        console.error('🏷️ Error creating tag:', createError);
-        // Tag might already exist with different case, try to find it again
-        const refreshedTags = await browser.messages.listTags();
-        paperlessTag = refreshedTags.find(tag => 
-          tag.tag.toLowerCase() === 'paperless' || 
-          tag.key.toLowerCase() === 'paperless'
-        );
-        if (!paperlessTag) {
-          throw new Error('Konnte "Paperless" Tag nicht erstellen: ' + createError.message);
-        }
-      }
-    }
-    
-    console.log('🏷️ Using tag:', paperlessTag);
-    
-    // Get current message to preserve existing tags
+    // Get current message to preserve existing tags/keywords
     const message = await browser.messages.get(messageId);
-    console.log('🏷️ Current message tags:', message.tags);
+    console.log('🏷️ Current message keywords:', message.keywords);
     
-    // Add the Paperless tag key to existing tags
-    const tagKey = paperlessTag.key;
-    const newTags = message.tags ? [...message.tags] : [];
+    // The "Paperless" keyword (lowercase is standard)
+    const paperlessKeyword = 'paperless';
     
-    if (!newTags.includes(tagKey)) {
-      newTags.push(tagKey);
-      console.log('🏷️ Updating message with tags:', newTags);
-      
-      await browser.messages.update(messageId, { tags: newTags });
-      console.log('🏷️ Successfully added Paperless tag to email');
-    } else {
-      console.log('🏷️ Email already has Paperless tag');
+    // Check if keyword already exists
+    if (message.keywords && message.keywords.includes(paperlessKeyword)) {
+      console.log('🏷️ Email already has Paperless keyword');
+      return true;
     }
     
+    // Add the Paperless keyword to existing keywords
+    const newKeywords = message.keywords ? [...message.keywords, paperlessKeyword] : [paperlessKeyword];
+    console.log('🏷️ Updating message with keywords:', newKeywords);
+    
+    // Update the message with new keywords
+    await browser.messages.update(messageId, { 
+      keywords: newKeywords 
+    });
+    
+    console.log('🏷️ Successfully added Paperless keyword to email');
     return true;
+    
   } catch (error) {
-    console.error('🏷️ Error adding Paperless tag to email:', error);
-    // Don't throw - tag assignment is not critical for upload success
+    console.error('🏷️ Error adding Paperless keyword to email:', error);
+    console.error('🏷️ Error details:', error.message, error.stack);
+    // Don't throw - keyword assignment is not critical for upload success
     return false;
   }
 }
@@ -497,19 +474,42 @@ async function uploadEmailWithAttachments(messageData, emailPdfData, selectedAtt
         config,
         'Richtung',
         'select',
-        ['Eingang', 'Ausgang']
+        ['Eingang', 'Ausgang', 'Intern']  // Include all possible direction options
       );
       console.log('📧 Direction field:', directionField);
+      console.log('📧 Direction field extra_data:', JSON.stringify(directionField.extra_data));
     } catch (fieldError) {
       console.error('📧 Error getting/creating direction field:', fieldError);
       throw new Error('Fehler beim Erstellen des Custom Fields "Richtung": ' + fieldError.message);
     }
 
-    // Prepare direction custom field value
-    const directionCustomField = {
+    // Find the option ID for the selected direction
+    let directionOptionId = null;
+    if (directionField.extra_data && directionField.extra_data.select_options) {
+      const options = directionField.extra_data.select_options;
+      console.log('📧 Available direction options:', JSON.stringify(options));
+      
+      // Find the option that matches the selected direction (with trimming for safety)
+      const directionTrimmed = direction.trim();
+      const matchingOption = options.find(opt => opt.label && opt.label.trim() === directionTrimmed);
+      if (matchingOption) {
+        directionOptionId = matchingOption.id;
+        console.log(`📧 Found direction option ID for "${direction}": ${directionOptionId}`);
+      } else {
+        console.error(`📧 Could not find option ID for direction: "${direction}"`);
+        console.error(`📧 Available options:`, options.map(o => o.label).join(', '));
+      }
+    }
+
+    // Prepare direction custom field value with the option ID (not the label!)
+    const directionCustomField = directionOptionId ? {
       field: directionField.id,
-      value: [direction]
-    };
+      value: [directionOptionId]  // Use the ID, not the label!
+    } : null;
+    
+    if (!directionCustomField) {
+      console.warn('📧 ⚠️ Could not set direction custom field - option ID not found');
+    }
 
     // Upload email PDF
     console.log('📧 Starting email PDF upload...');
@@ -648,16 +648,28 @@ async function uploadEmailWithAttachments(messageData, emailPdfData, selectedAtt
 
     // Update email document with links to attachments and direction
     try {
-      const emailCustomFields = [directionCustomField];
+      const emailCustomFields = [];
+      
+      // Add direction if we found the option ID
+      if (directionCustomField) {
+        emailCustomFields.push(directionCustomField);
+      }
+      
+      // Add related documents if any attachments were uploaded
       if (attachmentDocIds.length > 0) {
         emailCustomFields.push({
           field: relatedDocsField.id,
           value: attachmentDocIds
         });
       }
-      console.log('📧 Setting email custom fields:', JSON.stringify(emailCustomFields));
-      await updateDocumentCustomFields(config, emailDocId, emailCustomFields);
-      console.log('📧 Email custom fields updated');
+      
+      if (emailCustomFields.length > 0) {
+        console.log('📧 Setting email custom fields:', JSON.stringify(emailCustomFields));
+        await updateDocumentCustomFields(config, emailDocId, emailCustomFields);
+        console.log('📧 Email custom fields updated');
+      } else {
+        console.log('📧 No custom fields to set');
+      }
     } catch (cfError) {
       console.error('📧 Error updating email custom fields:', cfError);
       // Don't throw - custom fields are not critical
@@ -666,15 +678,23 @@ async function uploadEmailWithAttachments(messageData, emailPdfData, selectedAtt
     // Update each attachment with link to email and direction
     for (const attachmentDocId of attachmentDocIds) {
       try {
-        const attachmentCustomFields = [
-          directionCustomField,
-          {
-            field: relatedDocsField.id,
-            value: [emailDocId]
-          }
-        ];
-        console.log('📧 Setting attachment custom fields for doc', attachmentDocId);
-        await updateDocumentCustomFields(config, attachmentDocId, attachmentCustomFields);
+        const attachmentCustomFields = [];
+        
+        // Add direction if available
+        if (directionCustomField) {
+          attachmentCustomFields.push(directionCustomField);
+        }
+        
+        // Add link to email document
+        attachmentCustomFields.push({
+          field: relatedDocsField.id,
+          value: [emailDocId]
+        });
+        
+        if (attachmentCustomFields.length > 0) {
+          console.log('📧 Setting attachment custom fields for doc', attachmentDocId);
+          await updateDocumentCustomFields(config, attachmentDocId, attachmentCustomFields);
+        }
       } catch (cfError) {
         console.error('📧 Error updating attachment custom fields:', cfError);
         // Don't throw - custom fields are not critical
