@@ -402,7 +402,8 @@ async function handleUpload(event) {
 
     // Send upload request to background script
     console.log('📤 Sending message to background script...');
-    console.log('📤 Message data:', JSON.stringify(currentMessage));
+    console.log('📤 Message ID:', currentMessage?.id);
+    console.log('📤 Message subject:', currentMessage?.subject);
     
     const result = await browser.runtime.sendMessage({
       action: 'uploadEmailWithAttachments',

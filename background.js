@@ -458,7 +458,8 @@ async function addPaperlessTagToEmail(messageId) {
 // Upload email PDF and attachments with custom fields
 async function uploadEmailWithAttachments(messageData, emailPdfData, selectedAttachments, direction) {
   console.log('📧 Starting uploadEmailWithAttachments');
-  console.log('📧 Message data:', JSON.stringify(messageData));
+  console.log('📧 Message ID:', messageData?.id);
+  console.log('📧 Message subject:', messageData?.subject);
   console.log('📧 Email PDF filename:', emailPdfData?.filename);
   console.log('📧 Selected attachments count:', selectedAttachments?.length);
   console.log('📧 Direction:', direction);
@@ -518,9 +519,9 @@ async function uploadEmailWithAttachments(messageData, emailPdfData, selectedAtt
     // Convert base64 back to blob
     let emailPdfBlob;
     try {
-      console.log('📧 Converting base64 to blob, data length:', emailPdfData?.blob?.length);
+      console.log('📧 Converting base64 to blob...');
       emailPdfBlob = base64ToBlob(emailPdfData.blob, 'application/pdf');
-      console.log('📧 Email PDF blob created, size:', emailPdfBlob.size);
+      console.log('📧 Email PDF blob created successfully');
     } catch (blobError) {
       console.error('📧 Error converting PDF to blob:', blobError);
       throw new Error('Fehler beim Konvertieren der PDF-Daten: ' + blobError.message);
