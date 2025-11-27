@@ -325,7 +325,7 @@ function generateEmailPdf() {
   // Attachments line (if any)
   if (attachmentText) {
     doc.setFont('helvetica', 'bold');
-    doc.text('Anhaenge:', margin + 3, yPosition + 3);
+    doc.text('Anhänge:', margin + 3, yPosition + 3);
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(9);
     attachmentLines.forEach((line, index) => {
@@ -489,7 +489,7 @@ async function handleUpload(event) {
     console.log('📤 Received result from background:', JSON.stringify(result));
 
     if (result && result.success) {
-      let successMsg = 'E-Mail und Anhaenge wurden erfolgreich an Paperless-ngx gesendet!';
+      let successMsg = 'E-Mail und Anhänge wurden erfolgreich an Paperless-ngx gesendet!';
       
       // Show warning if document is still processing
       if (result.warning) {
