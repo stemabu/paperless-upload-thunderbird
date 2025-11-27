@@ -56,29 +56,11 @@ browser.menus.onClicked.addListener(async (info, tab) => {
   }
 });
 
-async function handleQuickPdfUpload(info) {
-  try {
-    const messages = info.selectedMessages.messages;
-    if (!messages || messages.length === 0) {
-      showNotification("No messages selected", "error");
-      return;
-    }
-
-    // Process each selected message for PDF attachments
-    for (const message of messages) {
-      await processQuickPdfUpload(message);
-    }
-  } catch (error) {
-    console.error("Error handling quick PDF upload:", error);
-    showNotification("Error processing attachments", "error");
-  }
-}
-
 async function handleAdvancedPdfUpload(info) {
   try {
     const messages = info.selectedMessages.messages;
     if (!messages || messages.length === 0) {
-      showNotification("No messages selected", "error");
+      showNotification("Keine Nachricht ausgewaehlt", "error");
       return;
     }
 
@@ -93,7 +75,7 @@ async function handleAdvancedPdfUpload(info) {
     );
 
     if (pdfAttachments.length === 0) {
-      showNotification("No PDF attachments found in selected message", "info");
+      showNotification("Keine PDF-Anhaenge in der Nachricht gefunden", "info");
       return;
     }
 
@@ -106,35 +88,7 @@ async function handleAdvancedPdfUpload(info) {
 
   } catch (error) {
     console.error("Error handling advanced PDF upload:", error);
-    showNotification("Error processing attachments", "error");
-  }
-}
-
-async function processQuickPdfUpload(message) {
-  try {
-    const attachments = await browser.messages.listAttachments(message.id);
-    const pdfAttachments = attachments.filter(attachment =>
-      attachment.contentType === "application/pdf" ||
-      attachment.name.toLowerCase().endsWith('.pdf')
-    );
-
-    if (pdfAttachments.length === 0) {
-      showNotification("No PDF attachments found in selected messages", "info");
-      return;
-    }
-
-    // If there's only one attachment, upload directly
-    if (pdfAttachments.length === 1) {
-      await uploadPdfToPaperless(message, pdfAttachments[0], { mode: 'quick' });
-      return;
-    }
-
-    // If there are multiple attachments, show selection dialog
-    await openAttachmentSelectionDialog(message, pdfAttachments);
-
-  } catch (error) {
-    console.error("Error processing PDF attachments:", error);
-    showNotification(`Error processing attachments: ${error.message}`, "error");
+    showNotification("Fehler beim Verarbeiten der Anhaenge", "error");
   }
 }
 
