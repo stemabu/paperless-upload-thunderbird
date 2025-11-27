@@ -111,14 +111,9 @@ async function openAttachmentSelectionDialog(message, pdfAttachments) {
       }
     });
 
-    // Open the selection dialog
+    // Open the selection dialog (centered, height 1000px)
     const dialogUrl = browser.runtime.getURL("select-attachments.html");
-    browser.windows.create({
-      url: dialogUrl,
-      type: "popup",
-      width: 500,
-      height: 600
-    });
+    await createCenteredWindow(dialogUrl, 550, 1000);
   } catch (error) {
     console.error("Error opening attachment selection dialog:", error);
     showNotification("Error opening attachment selection dialog", "error");
@@ -147,13 +142,8 @@ async function openAdvancedUploadDialog(message, pdfAttachments) {
       }
     });
 
-    // Open the dialog
-    browser.windows.create({
-      url: dialogUrl,
-      type: "popup",
-      width: 550,
-      height: 700
-    });
+    // Open the dialog (centered, height 1000px)
+    await createCenteredWindow(dialogUrl, 550, 1000);
   } catch (error) {
     console.error("Error opening dialog:", error);
     showNotification("Error opening upload dialog", "error");
@@ -210,14 +200,9 @@ async function openEmailUploadDialog(message) {
       }
     });
 
-    // Open the email upload dialog
+    // Open the email upload dialog (centered, height 1000px)
     const dialogUrl = browser.runtime.getURL("email-upload-dialog.html");
-    browser.windows.create({
-      url: dialogUrl,
-      type: "popup",
-      width: 550,
-      height: 700
-    });
+    await createCenteredWindow(dialogUrl, 550, 1000);
 
   } catch (error) {
     console.error("Error opening email upload dialog:", error);
@@ -303,6 +288,52 @@ async function getOrCreateCustomField(config, fieldName, fieldType, selectOption
 
   } catch (error) {
     console.error(`Error getting/creating custom field "${fieldName}":`, error);
+    throw error;
+  }
+}
+
+// Get or create document type by name
+async function getOrCreateDocumentType(config, typeName) {
+  try {
+    // First, try to find existing document type
+    const response = await fetch(`${config.url}/api/document_types/`, {
+      headers: { 'Authorization': `Token ${config.token}` }
+    });
+
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}`);
+    }
+
+    const data = await response.json();
+    const existingType = data.results.find(t => t.name === typeName);
+
+    if (existingType) {
+      console.log(`📄 Found existing document type "${typeName}" with ID: ${existingType.id}`);
+      return existingType;
+    }
+
+    // Create new document type if not found
+    console.log(`📄 Creating new document type "${typeName}"...`);
+    const createResponse = await fetch(`${config.url}/api/document_types/`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Token ${config.token}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ name: typeName })
+    });
+
+    if (!createResponse.ok) {
+      const errorText = await createResponse.text();
+      throw new Error(`Failed to create document type: ${errorText}`);
+    }
+
+    const newType = await createResponse.json();
+    console.log(`📄 Created document type "${typeName}" with ID: ${newType.id}`);
+    return newType;
+
+  } catch (error) {
+    console.error(`Error getting/creating document type "${typeName}":`, error);
     throw error;
   }
 }
@@ -429,9 +460,28 @@ async function uploadEmailWithAttachments(messageData, emailPdfData, selectedAtt
       console.warn('📧 ⚠️ Could not set direction custom field - option ID not found');
     }
 
+    // Get or create document types for E-Mail and E-Mail-Anhang
+    let emailDocumentType;
+    let attachmentDocumentType;
+    
+    try {
+      emailDocumentType = await getOrCreateDocumentType(config, 'E-Mail');
+      console.log(`📧 Setting document type to: ${emailDocumentType.id} (E-Mail)`);
+    } catch (typeError) {
+      console.error('📧 Error getting/creating E-Mail document type:', typeError);
+      // Continue without document type - not critical
+    }
+    
+    try {
+      attachmentDocumentType = await getOrCreateDocumentType(config, 'E-Mail-Anhang');
+      console.log(`📧 Setting document type to: ${attachmentDocumentType.id} (E-Mail-Anhang)`);
+    } catch (typeError) {
+      console.error('📧 Error getting/creating E-Mail-Anhang document type:', typeError);
+      // Continue without document type - not critical
+    }
+
     // Upload email PDF
     console.log('📧 Starting email PDF upload...');
-    showNotification("E-Mail-PDF wird hochgeladen...", "info");
     
     // Convert base64 back to blob
     let emailPdfBlob;
@@ -448,9 +498,10 @@ async function uploadEmailWithAttachments(messageData, emailPdfData, selectedAtt
     emailFormData.append('document', emailPdfBlob, emailPdfData.filename);
     emailFormData.append('title', emailPdfData.filename.replace(/\.pdf$/i, ''));
     
-    // Add document type "E-Mail" if it doesn't exist as string but will be matched
-    // Paperless-ngx accepts document_type as name string and will match or create
-    // For now we just include it as a hint - actual type assignment happens later
+    // Add document type "E-Mail" (using ID)
+    if (emailDocumentType && emailDocumentType.id) {
+      emailFormData.append('document_type', emailDocumentType.id);
+    }
     
     // Add created date (email date)
     if (documentDate) {
@@ -515,7 +566,6 @@ async function uploadEmailWithAttachments(messageData, emailPdfData, selectedAtt
     
     for (const attachment of selectedAttachments || []) {
       console.log('📎 Processing attachment:', attachment.name, 'partName:', attachment.partName);
-      showNotification(`Anhang wird hochgeladen: ${attachment.name}...`, "info");
       
       // Get attachment file
       let attachmentFile;
@@ -539,6 +589,11 @@ async function uploadEmailWithAttachments(messageData, emailPdfData, selectedAtt
       const attachmentFormData = new FormData();
       attachmentFormData.append('document', attachmentFile, attachment.name);
       attachmentFormData.append('title', attachment.name.replace(/\.[^/.]+$/, ''));
+      
+      // Add document type "E-Mail-Anhang" (using ID)
+      if (attachmentDocumentType && attachmentDocumentType.id) {
+        attachmentFormData.append('document_type', attachmentDocumentType.id);
+      }
       
       // Add created date (same as email date)
       if (documentDate) {
@@ -600,7 +655,6 @@ async function uploadEmailWithAttachments(messageData, emailPdfData, selectedAtt
 
     // Update custom fields for all documents
     console.log('📧 Updating custom fields...');
-    showNotification("Verknüpfungen werden erstellt...", "info");
 
     // Update email document with links to attachments and direction
     try {
@@ -700,31 +754,22 @@ async function uploadEmailWithAttachments(messageData, emailPdfData, selectedAtt
 // Wait for document to be processed and return the document ID
 // Polls the Paperless-ngx tasks API until the document is processed or timeout occurs
 async function waitForDocumentId(config, taskId, maxAttempts = DOCUMENT_PROCESSING_MAX_ATTEMPTS, delayMs = DOCUMENT_PROCESSING_DELAY_MS) {
-  console.log(`📋 Starting to wait for document ID, taskId: ${taskId}`);
-  console.log(`📋 Max attempts: ${maxAttempts}, delay: ${delayMs}ms`);
+  console.log(`📋 Waiting for document ID, taskId: ${taskId}`);
   
   for (let attempt = 0; attempt < maxAttempts; attempt++) {
     try {
-      console.log(`📋 Checking task status, attempt ${attempt + 1}/${maxAttempts}`);
-      
       const taskUrl = `${config.url}/api/tasks/?task_id=${taskId}`;
-      console.log(`📋 Task API URL: ${taskUrl}`);
       
       // Check task status
       const taskResponse = await fetch(taskUrl, {
         headers: { 'Authorization': `Token ${config.token}` }
       });
 
-      console.log(`📋 Task response status: ${taskResponse.status}`);
-
       if (taskResponse.ok) {
         const taskData = await taskResponse.json();
-        console.log(`📋 Task data received:`, JSON.stringify(taskData, null, 2));
         
         if (taskData.length > 0) {
           const task = taskData[0];
-          console.log(`📋 Task status: ${task.status}`);
-          console.log(`📋 Task related_document: ${task.related_document}`);
           
           if (task.status === 'SUCCESS' && task.related_document) {
             console.log(`📋 ✅ Task completed successfully!`);
@@ -739,28 +784,23 @@ async function waitForDocumentId(config, taskId, maxAttempts = DOCUMENT_PROCESSI
             if (typeof relatedDoc === 'number') {
               // Direct number
               docId = relatedDoc;
-              console.log(`📋 Document ID is a number: ${docId}`);
             } else if (typeof relatedDoc === 'string') {
               // Try to parse as URL first
               const urlMatch = relatedDoc.match(/\/api\/documents\/(\d+)\//);
               if (urlMatch) {
                 docId = parseInt(urlMatch[1], 10);
-                console.log(`📋 Document ID extracted from URL: ${docId}`);
               } else if (/^\d+$/.test(relatedDoc)) {
                 // Try to parse as simple number string
                 docId = parseInt(relatedDoc, 10);
-                console.log(`📋 Document ID parsed from string: ${docId}`);
               } else {
                 console.error(`📋 ❌ Could not parse document ID from: "${relatedDoc}"`);
-                console.error(`📋 Type: ${typeof relatedDoc}, Value: ${JSON.stringify(relatedDoc)}`);
               }
             } else {
               console.error(`📋 ❌ Unexpected related_document type: ${typeof relatedDoc}`);
-              console.error(`📋 Value: ${JSON.stringify(relatedDoc)}`);
             }
             
             if (Number.isInteger(docId) && docId >= 0) {
-              console.log(`📋 ✅ Final document ID: ${docId}`);
+              console.log(`📋 ✅ Document ID: ${docId}`);
               return docId;
             } else {
               console.error(`📋 ❌ Could not determine valid document ID`);
@@ -769,22 +809,17 @@ async function waitForDocumentId(config, taskId, maxAttempts = DOCUMENT_PROCESSI
           } else if (task.status === 'FAILURE') {
             console.error("📋 ❌ Task failed:", task.result);
             return null;
-          } else {
-            console.log(`📋 ⏳ Task still processing (status: ${task.status})...`);
           }
-        } else {
-          console.log(`📋 ⚠️ No task data returned (empty array)`);
+          // For PENDING/STARTED status, continue polling without logging
         }
       } else {
         console.error(`📋 ❌ Task API request failed with status ${taskResponse.status}`);
       }
 
-      // Wait before next attempt
-      console.log(`📋 Waiting ${delayMs}ms before next attempt...`);
+      // Wait before next attempt (no logging)
       await new Promise(resolve => setTimeout(resolve, delayMs));
     } catch (error) {
       console.error("📋 ❌ Error checking task status:", error);
-      console.error("📋 Error stack:", error.stack);
     }
   }
 

@@ -31,12 +31,7 @@ function setupPlusButtons() {
 
 async function createNewCorrespondent() {
   try {
-    const popup = await browser.windows.create({
-      url: browser.runtime.getURL('create-correspondent.html'),
-      type: 'popup',
-      width: 600,
-      height: 500
-    });
+    await createCenteredWindow(browser.runtime.getURL('create-correspondent.html'), 600, 600);
   } catch (error) {
     console.error('Error opening correspondent creation window:', error);
   }
@@ -44,12 +39,7 @@ async function createNewCorrespondent() {
 
 async function createNewDocumentType() {
   try {
-    const popup = await browser.windows.create({
-      url: browser.runtime.getURL('create-document-type.html'),
-      type: 'popup',
-      width: 600,
-      height: 500,
-    });
+    await createCenteredWindow(browser.runtime.getURL('create-document-type.html'), 600, 600);
   } catch (error) {
     console.error('Error opening document type creation window:', error);
   }
