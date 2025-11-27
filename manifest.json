@@ -13,6 +13,8 @@
     "messagesRead",
     "messagesUpdate",
     "accountsRead",
+    "messagesTags",
+    "messagesTagsList",
     "menus",
     "notifications",
     "storage"
