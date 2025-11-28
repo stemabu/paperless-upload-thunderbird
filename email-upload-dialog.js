@@ -681,25 +681,86 @@ function hasDangerousUrlScheme(url) {
   );
 }
 
-// Sanitize HTML for safe PDF rendering
+// Sanitize and simplify HTML for reliable PDF rendering
+// Converts complex HTML structures to simple, well-supported elements
 function sanitizeHtmlForPdf(html) {
+  console.log('📄 Sanitizing HTML for PDF...');
+  
   // Create a temporary element to parse HTML
   const tempDiv = document.createElement('div');
   tempDiv.innerHTML = html;
   
-  // Remove script, style, and other potentially problematic elements
-  const elementsToRemove = tempDiv.querySelectorAll('script, style, link, meta, head, iframe, frame, object, embed, form, input, button, select, textarea');
+  console.log('📄 Original HTML length:', html.length);
+  
+  // 1. Remove dangerous and non-rendering elements
+  const elementsToRemove = tempDiv.querySelectorAll(
+    'script, style, link, meta, head, iframe, frame, frameset, object, embed, applet, ' +
+    'form, input, button, select, textarea, fieldset, legend'
+  );
+  console.log('📄 Removing', elementsToRemove.length, 'dangerous/non-rendering elements');
   elementsToRemove.forEach(el => el.remove());
   
-  // Remove event handlers from all elements
+  // 2. Expand <details> elements (convert to visible div)
+  const detailsElements = tempDiv.querySelectorAll('details');
+  console.log('📄 Expanding', detailsElements.length, 'details elements');
+  detailsElements.forEach(details => {
+    // Remove the 'open' behavior, just show content
+    const div = document.createElement('div');
+    div.className = 'expanded-details';
+    div.innerHTML = details.innerHTML;
+    details.replaceWith(div);
+  });
+  
+  // 3. Simplify <summary> to bold text
+  const summaryElements = tempDiv.querySelectorAll('summary');
+  console.log('📄 Simplifying', summaryElements.length, 'summary elements');
+  summaryElements.forEach(summary => {
+    const strong = document.createElement('strong');
+    strong.textContent = summary.textContent;
+    summary.replaceWith(strong);
+  });
+  
+  // 4. Convert complex semantic elements to simple divs/spans
+  const semanticToSimple = {
+    'article': 'div',
+    'section': 'div',
+    'aside': 'div',
+    'nav': 'div',
+    'header': 'div',
+    'footer': 'div',
+    'main': 'div',
+    'figure': 'div',
+    'figcaption': 'div',
+    'mark': 'span',
+    'time': 'span',
+    'meter': 'span',
+    'progress': 'span'
+  };
+  
+  Object.keys(semanticToSimple).forEach(oldTag => {
+    const elements = tempDiv.querySelectorAll(oldTag);
+    console.log(`📄 Converting ${elements.length} <${oldTag}> to <${semanticToSimple[oldTag]}>`);
+    elements.forEach(el => {
+      const newEl = document.createElement(semanticToSimple[oldTag]);
+      newEl.innerHTML = el.innerHTML;
+      // Copy useful attributes
+      if (el.className) newEl.className = el.className;
+      if (el.id) newEl.id = el.id;
+      el.replaceWith(newEl);
+    });
+  });
+  
+  // 5. Remove all event handlers and dangerous attributes
   const allElements = tempDiv.querySelectorAll('*');
+  console.log('📄 Cleaning attributes from', allElements.length, 'elements');
   allElements.forEach(el => {
-    // Remove all on* attributes
+    // Remove all on* event attributes
     Array.from(el.attributes).forEach(attr => {
       if (attr.name.startsWith('on')) {
         el.removeAttribute(attr.name);
       }
     });
+    
     // Remove dangerous URL schemes (javascript:, vbscript:, data:)
     // Also handles URL-encoded schemes
     if (el.href) {
@@ -713,28 +774,154 @@ function sanitizeHtmlForPdf(html) {
         el.removeAttribute('src');
       }
     }
+    
+    // Remove Outlook-specific and vendor-specific attributes
+    Array.from(el.attributes).forEach(attr => {
+      if (attr.name.startsWith('mso-') || 
+          attr.name.startsWith('v:') || 
+          attr.name.startsWith('o:') ||
+          attr.name.startsWith('xmlns:')) {
+        el.removeAttribute(attr.name);
+      }
+    });
+    
+    // Simplify dir attribute (keep only ltr/rtl/auto)
+    if (el.hasAttribute('dir')) {
+      const dir = el.getAttribute('dir').toLowerCase();
+      if (!['ltr', 'rtl', 'auto'].includes(dir)) {
+        el.removeAttribute('dir');
+      }
+    }
   });
   
-  // Add basic styling for common elements to improve rendering
+  // 6. Add comprehensive styling for reliable rendering
   const styleTag = document.createElement('style');
   styleTag.textContent = `
-    body, html { margin: 0; padding: 0; }
+    /* Reset and base styles */
+    * { box-sizing: border-box; }
+    body, html { 
+      margin: 0; 
+      padding: 0; 
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+      font-size: 12px;
+      line-height: 1.6;
+      color: #333;
+      background: white;
+    }
+    
+    /* Text elements */
     p { margin: 0.5em 0; }
-    h1, h2, h3, h4, h5, h6 { margin: 0.5em 0; }
-    ul, ol { margin: 0.5em 0; padding-left: 1.5em; }
-    table { border-collapse: collapse; margin: 0.5em 0; }
-    td, th { padding: 4px 8px; border: 1px solid #ddd; }
-    img { max-width: 100%; height: auto; }
-    a { color: #0066cc; text-decoration: underline; }
-    blockquote { margin: 0.5em 0; padding-left: 1em; border-left: 3px solid #ccc; color: #666; }
-    pre, code { font-family: monospace; background: #f5f5f5; padding: 2px 4px; }
-    hr { border: none; border-top: 1px solid #ddd; margin: 1em 0; }
+    h1 { font-size: 1.8em; margin: 0.8em 0 0.4em; font-weight: bold; }
+    h2 { font-size: 1.5em; margin: 0.8em 0 0.4em; font-weight: bold; }
+    h3 { font-size: 1.3em; margin: 0.8em 0 0.4em; font-weight: bold; }
+    h4 { font-size: 1.1em; margin: 0.8em 0 0.4em; font-weight: bold; }
+    h5, h6 { font-size: 1em; margin: 0.8em 0 0.4em; font-weight: bold; }
+    
+    /* Lists */
+    ul, ol { margin: 0.5em 0; padding-left: 2em; }
+    li { margin: 0.25em 0; }
+    
+    /* Tables */
+    table { 
+      border-collapse: collapse; 
+      margin: 0.5em 0; 
+      width: 100%;
+      max-width: 100%;
+    }
+    td, th { 
+      padding: 6px 8px; 
+      border: 1px solid #ddd; 
+      text-align: left;
+      vertical-align: top;
+    }
+    th { 
+      font-weight: bold; 
+      background: #f5f5f5; 
+    }
+    
+    /* Images */
+    img { 
+      max-width: 100%; 
+      height: auto; 
+      display: block;
+      margin: 0.5em 0;
+    }
+    
+    /* Links */
+    a { 
+      color: #0066cc; 
+      text-decoration: underline; 
+    }
+    
+    /* Quotes */
+    blockquote { 
+      margin: 0.5em 0; 
+      padding-left: 1em; 
+      border-left: 3px solid #ccc; 
+      color: #666; 
+      font-style: italic;
+    }
+    
+    /* Code */
+    pre, code { 
+      font-family: 'Courier New', Courier, monospace; 
+      background: #f5f5f5; 
+      padding: 2px 4px; 
+      border-radius: 3px;
+      font-size: 0.9em;
+    }
+    pre { 
+      padding: 8px; 
+      overflow-x: auto; 
+      white-space: pre-wrap;
+      word-wrap: break-word;
+    }
+    
+    /* Horizontal rule */
+    hr { 
+      border: none; 
+      border-top: 1px solid #ddd; 
+      margin: 1em 0; 
+    }
+    
+    /* Expanded details styling */
+    .expanded-details { 
+      margin: 0.5em 0; 
+      padding: 0.5em; 
+      border: 1px solid #ddd; 
+      border-radius: 3px;
+      background: #fafafa;
+    }
+    
+    /* Text formatting */
+    strong, b { font-weight: bold; }
+    em, i { font-style: italic; }
+    u { text-decoration: underline; }
+    s, strike, del { text-decoration: line-through; }
+    
+    /* Divs and spans */
+    div { margin: 0; }
+    span { display: inline; }
+    
+    /* Remove Outlook-specific styles */
+    [class*="mso"] { display: block !important; }
+    
+    /* Ensure text is visible and readable */
+    * {
+      max-width: 100%;
+      word-wrap: break-word;
+      overflow-wrap: break-word;
+    }
   `;
   
   // Insert style at the beginning
   tempDiv.insertBefore(styleTag, tempDiv.firstChild);
   
-  return tempDiv.innerHTML;
+  const result = tempDiv.innerHTML;
+  console.log('📄 Sanitized HTML length:', result.length);
+  console.log('📄 HTML sanitization complete');
+  
+  return result;
 }
 
 // Render plain text body to PDF with improved character handling
