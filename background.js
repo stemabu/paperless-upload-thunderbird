@@ -6,9 +6,9 @@ const DOCUMENT_PROCESSING_MAX_ATTEMPTS = 60;
 const DOCUMENT_PROCESSING_DELAY_MS = 1000;
 
 // Configuration constants for Thunderbird tag
-const PAPERLESS_TAG_KEY = "paperless";
+const PAPERLESS_TAG_PREFERRED_KEY = "paperless"; // desired key when creating new
 const PAPERLESS_TAG_LABEL = "Paperless";
-const PAPERLESS_TAG_COLOR = "#26a269"; // Paperless-Grün
+const PAPERLESS_TAG_COLOR = "#007bff";
 
 let currentPdfAttachments = [];
 let currentMessage = null;
@@ -365,11 +365,25 @@ async function updateDocumentCustomFields(config, documentId, customFields) {
 }
 
 // Helper function to find Paperless tag in a list of tags
-// Uses case-insensitive comparison for robustness
+// Returns the tag object if found, otherwise undefined
+// First checks for exact key match with PAPERLESS_TAG_PREFERRED_KEY,
+// then falls back to case-insensitive label matching with PAPERLESS_TAG_LABEL
 function findPaperlessTag(tags) {
+  const preferredKeyLower = PAPERLESS_TAG_PREFERRED_KEY.toLowerCase();
+  const labelLower = PAPERLESS_TAG_LABEL.toLowerCase();
+  
+  // First: check for exact key match with preferred key
+  const byKey = tags.find(tag => 
+    tag.key?.toLowerCase() === preferredKeyLower
+  );
+  if (byKey) {
+    return byKey;
+  }
+  
+  // Second: case-insensitive label/tag match
   return tags.find(tag => 
-    tag.key?.toLowerCase() === PAPERLESS_TAG_KEY.toLowerCase() ||
-    tag.tag?.toLowerCase() === PAPERLESS_TAG_KEY.toLowerCase()
+    tag.label?.toLowerCase() === labelLower ||
+    tag.tag?.toLowerCase() === labelLower
   );
 }
 
@@ -453,8 +467,11 @@ async function createMailTag(key, label, color) {
 
 /**
  * Ensure the Paperless tag exists in Thunderbird, creating it if absent.
- * After creation, re-lists tags and verifies key registration before returning true.
- * @returns {Promise<boolean>} True if tag exists or was created successfully
+ * Returns the effective tag key to use for tagging messages.
+ * - If a tag with key === PAPERLESS_TAG_PREFERRED_KEY exists, returns that key.
+ * - Else if a tag with label === PAPERLESS_TAG_LABEL (case-insensitive) exists, returns its key.
+ * - Else creates a new tag with PAPERLESS_TAG_PREFERRED_KEY and returns that key if successful.
+ * @returns {Promise<string|null>} The effective tag key or null if tag could not be ensured
  */
 async function ensurePaperlessTag() {
   try {
@@ -462,43 +479,43 @@ async function ensurePaperlessTag() {
     
     if (!tags) {
       console.warn("🏷️ Paperless-Tag: Tags API not available");
-      return false;
+      return null;
     }
     
-    // Check if tag already exists
+    // Check if tag already exists (by preferred key or by label)
     let existingTag = findPaperlessTag(tags);
     if (existingTag) {
       console.log("🏷️ Paperless-Tag: Tag already exists with key:", existingTag.key);
-      return true;
+      return existingTag.key;
     }
     
-    // Tag doesn't exist, create it
-    console.log("🏷️ Paperless-Tag: Tag does not exist, creating...");
-    const created = await createMailTag(PAPERLESS_TAG_KEY, PAPERLESS_TAG_LABEL, PAPERLESS_TAG_COLOR);
+    // Tag doesn't exist, create it with preferred key
+    console.log("🏷️ Paperless-Tag: Tag does not exist, creating with key:", PAPERLESS_TAG_PREFERRED_KEY);
+    const created = await createMailTag(PAPERLESS_TAG_PREFERRED_KEY, PAPERLESS_TAG_LABEL, PAPERLESS_TAG_COLOR);
     
     if (!created) {
       console.warn("🏷️ Paperless-Tag: Failed to create tag");
-      return false;
+      return null;
     }
     
     // Re-list tags and verify registration
     tags = await listAllTags();
     if (!tags) {
       console.warn("🏷️ Paperless-Tag: Could not re-list tags after creation");
-      return false;
+      return null;
     }
     
     existingTag = findPaperlessTag(tags);
     if (existingTag) {
       console.log("🏷️ Paperless-Tag: Tag creation verified, key:", existingTag.key);
-      return true;
+      return existingTag.key;
     }
     
     console.warn("🏷️ Paperless-Tag: Tag not found after creation");
-    return false;
+    return null;
   } catch (e) {
     console.error("🏷️ Paperless-Tag: Error ensuring tag:", e);
-    return false;
+    return null;
   }
 }
 
@@ -513,12 +530,14 @@ async function addPaperlessTagToEmail(messageId) {
   try {
     console.log("🏷️ Paperless-Tag: Starting tag assignment for message", messageId);
     
-    // Ensure tag exists
-    const tagReady = await ensurePaperlessTag();
-    if (!tagReady) {
+    // Ensure tag exists and get the effective key
+    const effectiveKey = await ensurePaperlessTag();
+    if (!effectiveKey) {
       console.warn("🏷️ Paperless-Tag: Could not ensure tag exists, skipping assignment");
       return;
     }
+    
+    console.log("🏷️ Paperless-Tag: Using effective key:", effectiveKey);
     
     // Get the message
     const msg = await browser.messages.get(messageId);
@@ -529,12 +548,12 @@ async function addPaperlessTagToEmail(messageId) {
     
     // Build new tag set preserving existing tags
     const existingTags = new Set(msg.tags || []);
-    if (existingTags.has(PAPERLESS_TAG_KEY)) {
+    if (existingTags.has(effectiveKey)) {
       console.log("🏷️ Paperless-Tag: Tag already assigned to message, skipping");
       return;
     }
     
-    existingTags.add(PAPERLESS_TAG_KEY);
+    existingTags.add(effectiveKey);
     const newTags = Array.from(existingTags);
     
     console.log("🏷️ Paperless-Tag: Updating message tags:", newTags);
@@ -542,7 +561,7 @@ async function addPaperlessTagToEmail(messageId) {
     
     // Re-fetch message to verify tag was assigned
     const verifyMsg = await browser.messages.get(messageId);
-    if (verifyMsg && verifyMsg.tags && verifyMsg.tags.includes(PAPERLESS_TAG_KEY)) {
+    if (verifyMsg && verifyMsg.tags && verifyMsg.tags.includes(effectiveKey)) {
       console.log("🏷️ Paperless-Tag: Tag successfully assigned and verified for message", messageId);
     } else {
       console.warn("🏷️ Paperless-Tag: Tag assignment could not be verified for message", messageId);
