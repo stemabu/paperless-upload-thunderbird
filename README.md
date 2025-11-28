@@ -1,78 +1,29 @@
-# Paperless Uploader for Thunderbird
+# Send to Paperless-ngx
 
 <p align="center">
   <img src="icons/icon-512.png" alt="Paperless Uploader Icon" width="256" height="256">
 </p>
 
-Available in the [Thunderbird Add-On Gallery](https://addons.thunderbird.net/addon/paperless-ngx-uploader/).
-
-
-## Screenshots
-
-<div align="center">
-  <!-- First Row -->
-  <table>
-    <tr>
-      <td align="center" valign="top">
-        <h3>Settings Interface</h3>
-        <img src="assets/settings_ui.png" alt="Settings UI" width="400">
-      </td>
-      <td align="center" valign="top">
-        <h3>Advanced Upload Dialog</h3>
-        <img src="assets/advanced_upload_dialog.png" alt="Advanced Upload Dialog" width="400">
-      </td>
-    </tr>
-  </table>
-  
-  <!-- Second Row -->
-  <table>
-    <tr>
-      <td align="center" valign="top">
-        <h3>Popup Interface</h3>
-        <img src="assets/popup_ui.png" alt="Popup UI" width="300">
-      </td>
-      <td align="center" valign="top">
-        <h3>Add Correspondent</h3>
-        <img src="assets/add_correspondent.png" alt="Add Correspondent" width="300">
-      </td>
-      <td align="center" valign="top">
-        <h3>Context Menu Integration</h3>
-        <img src="assets/context_menu.png" alt="Context Menu" width="300">
-      </td>
-    </tr>
-  </table>
-
-  <!-- Third Row -->
-  <table>
-    <tr>
-      <td align="center" valign="top">
-        <h3>Message Context Interface</h3>
-        <img src="assets/message_context_button_pressed.png" alt="Message Context Button Pressed" width="270">
-      </td>
-    </tr>
-  </table>
-</div>
-
 ---
 
 ## Usage
 
-1. Open an email with a PDF attachment.
-2. Click the **Paperless Uploader** icon in the Thunderbird toolbar.
+1. Open an email with or without an PDF attachment.
+2. Click the **Send to Paperless-ngx** icon in the Thunderbird toolbar.
 3. Configure your paperless-ngx server URL and API key in the add-on's options (first use only).
-4. Right click the message and select the upload option.
-5. Receive a notification when the upload is complete.
+4. Right click the message and select the upload option (either email with/without attachments or attachments only).
+5. After receiving notification that the upload is complete, the email is tagged in Thunderbird with "Paperless"-tag.
 
 
 ## Overview
 
-**Paperless Uploader** is a Thunderbird add-on that streamlines the process of uploading PDF attachments directly to your [paperless-ngx](https://github.com/paperless-ngx/paperless-ngx) server. With a single click, you can send documents from your inbox to your document management system—no manual downloads or uploads required.
+**Send to Paperless-ngx** is a Thunderbird add-on that streamlines the process of uploading PDF attachments directly to your [paperless-ngx](https://github.com/paperless-ngx/paperless-ngx) server. With a single click, you can send documents from your inbox to your document management system—no manual downloads or uploads required.
 
 ---
 
 ## Features
 
-- 📄 Upload PDF attachments from any email directly to paperless-ngx
+- 📄 Upload E-Mails and/or PDF attachments from any email directly to paperless-ngx
 - 🔒 Secure, local processing—no third-party servers
 - 🛠️ Simple configuration for your paperless-ngx instance
 - 🔔 Optional notifications on upload success or failure
