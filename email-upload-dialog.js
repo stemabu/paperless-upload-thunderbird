@@ -118,24 +118,14 @@ async function loadEmailData() {
       isHtmlBody = /<html[\s>]|<body[\s>]|<div[\s>]|<p[\s>]|<table[\s>]/i.test(emailBody);
     }
 
-    console.log('📧 Email body length (raw):', emailBody.length);
-    console.log('📧 Is HTML body:', isHtmlBody);
-    
-    // Decode email body if needed
+    console.log('📧 - Email body length:', emailBody.length);
+    console.log('📧 - Is HTML body:', isHtmlBody);
+
+    // Debug: Show first 200 characters of email body for inspection
     if (emailBody) {
-      // Check and decode Quoted-Printable encoding
-      if (isQuotedPrintableEncoded(emailBody)) {
-        console.log('📧 Detected Quoted-Printable encoding, decoding...');
-        emailBody = decodeQuotedPrintable(emailBody);
-        console.log('📧 After QP decoding, length:', emailBody.length);
-      }
-      
-      // Check and decode HTML entities (for both HTML and plain text emails)
-      if (hasHtmlEntities(emailBody)) {
-        console.log('📧 Detected HTML entities, decoding...');
-        emailBody = decodeHtmlEntities(emailBody);
-        console.log('📧 After entity decoding, length:', emailBody.length);
-      }
+      console.log('📧 - Email body preview (first 200 chars):', emailBody.substring(0, 200));
+      console.log('📧 - Email body char codes (first 50 chars):', 
+        Array.from(emailBody.substring(0, 50)).map(c => c.charCodeAt(0)).join(','));
     }
 
     console.log('📧 Email loaded:');
@@ -531,8 +521,12 @@ async function generateEmailPdf() {
   };
 }
 
-// Render HTML body to PDF using html2canvas
+// Render HTML body to PDF using html2canvas with improved charset handling
 async function renderHtmlBodyToPdf(doc, htmlContent, margin, startY, contentWidth, pageHeight) {
+  console.log('📄 Rendering HTML body with html2canvas...');
+  console.log('📄 HTML content length:', htmlContent.length);
+  console.log('📄 HTML preview (first 200 chars):', htmlContent.substring(0, 200));
+  
   // Conversion factor: 1 mm = ~3.78 pixels (at 96 DPI)
   const MM_TO_PIXELS = 3.78;
   
@@ -553,7 +547,17 @@ async function renderHtmlBodyToPdf(doc, htmlContent, margin, startY, contentWidt
   
   // Sanitize and process HTML content
   const sanitizedHtml = sanitizeHtmlForPdf(htmlContent);
-  container.innerHTML = sanitizedHtml;
+  
+  // Set innerHTML with proper charset handling
+  try {
+    container.innerHTML = sanitizedHtml;
+    console.log('📄 HTML parsed successfully');
+  } catch (error) {
+    console.error('📄 Error parsing HTML:', error);
+    // Fallback: try to clean the HTML more aggressively
+    container.textContent = htmlContent.replace(/<[^>]*>/g, '');
+    console.log('📄 Fell back to plain text extraction');
+  }
   
   // Add to document for rendering
   document.body.appendChild(container);
@@ -566,7 +570,14 @@ async function renderHtmlBodyToPdf(doc, htmlContent, margin, startY, contentWidt
       logging: false,
       backgroundColor: '#ffffff',
       windowWidth: contentWidth * MM_TO_PIXELS,
-      removeContainer: false
+      removeContainer: false,
+      // Add charset handling
+      onclone: (clonedDoc) => {
+        // Ensure proper charset in cloned document
+        const meta = clonedDoc.createElement('meta');
+        meta.setAttribute('charset', 'UTF-8');
+        clonedDoc.head.insertBefore(meta, clonedDoc.head.firstChild);
+      }
     });
     
     console.log('📄 HTML rendered to canvas:', canvas.width, 'x', canvas.height);
@@ -620,6 +631,12 @@ async function renderHtmlBodyToPdf(doc, htmlContent, margin, startY, contentWidt
     }
     
     console.log('📄 HTML body added to PDF');
+  } catch (error) {
+    console.error('📄 Error rendering HTML to PDF:', error);
+    // Fallback to plain text rendering
+    console.log('📄 Falling back to plain text rendering');
+    const plainText = container.textContent || container.innerText || '';
+    renderPlainTextBody(doc, plainText, margin, startY, contentWidth, pageHeight);
   } finally {
     // Clean up - use remove() for safer element removal
     if (container.parentNode) {
@@ -706,29 +723,52 @@ function sanitizeHtmlForPdf(html) {
   return tempDiv.innerHTML;
 }
 
-// Render plain text body to PDF
+// Render plain text body to PDF with improved character handling
 function renderPlainTextBody(doc, text, margin, startY, contentWidth, pageHeight) {
+  console.log('📄 Rendering plain text body...');
+  console.log('📄 Text length:', text.length);
+  console.log('📄 Text preview (first 100 chars):', text.substring(0, 100));
+  
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(11);
   
-  // Clean up the text
-  let bodyText = text;
+  // Clean up the text - remove any control characters except newlines and tabs
+  let bodyText = text.replace(/[\x00-\x08\x0B-\x0C\x0E-\x1F\x7F]/g, '');
+  
+  console.log('📄 After cleanup, length:', bodyText.length);
+  console.log('📄 After cleanup, preview:', bodyText.substring(0, 100));
   
   // Split body into lines that fit the page width
   const bodyLines = doc.splitTextToSize(bodyText, contentWidth);
   const bodyLineHeight = 5;
   let yPosition = startY;
 
-  for (const line of bodyLines) {
+  console.log('📄 Total lines to render:', bodyLines.length);
+
+  for (let i = 0; i < bodyLines.length; i++) {
+    const line = bodyLines[i];
+    
     // Check if we need a new page
     if (yPosition + bodyLineHeight > pageHeight - margin) {
       doc.addPage();
       yPosition = margin;
+      console.log('📄 Added new page at line', i);
     }
     
-    doc.text(line, margin, yPosition);
+    // Try to render the line, catch any errors
+    try {
+      doc.text(line, margin, yPosition);
+    } catch (error) {
+      console.error('📄 Error rendering line', i, ':', error);
+      console.error('📄 Problematic line:', line);
+      // Try to render a placeholder instead
+      doc.text('[Rendering error - line skipped]', margin, yPosition);
+    }
+    
     yPosition += bodyLineHeight;
   }
+  
+  console.log('📄 Plain text rendering complete');
 }
 
 // Get selected attachments
