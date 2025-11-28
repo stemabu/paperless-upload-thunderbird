@@ -12,7 +12,6 @@
   "permissions": [
     "messagesRead",
     "messagesUpdate",
-    "accountsRead",
     "messagesTags",
     "messagesTagsList",
     "menus",
