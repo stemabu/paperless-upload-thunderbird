@@ -1034,8 +1034,17 @@ async function uploadEmailAsEml(messageData, selectedAttachments, direction, cor
 
     // Get .eml file from Thunderbird
     console.log('📧 Getting .eml file from Thunderbird...');
-    const emlFile = await browser.messages.getRaw(messageData.id);
-    console.log('📧 EML size:', emlFile.length, 'bytes');
+    let emlFile;
+    try {
+      emlFile = await browser.messages.getRaw(messageData.id);
+      if (!emlFile || emlFile.length === 0) {
+        throw new Error('E-Mail-Inhalt ist leer oder konnte nicht abgerufen werden');
+      }
+      console.log('📧 EML size:', emlFile.length, 'bytes');
+    } catch (emlError) {
+      console.error('📧 Error getting raw email:', emlError);
+      throw new Error(`E-Mail konnte nicht geladen werden: ${emlError.message}`);
+    }
 
     // Create filename
     const dateStr = documentDate || new Date().toISOString().split('T')[0];
@@ -1114,7 +1123,7 @@ async function uploadEmailAsEml(messageData, selectedAttachments, direction, cor
         );
         
         if (!attachmentFile || attachmentFile.size === 0) {
-          throw new Error('Datei leer');
+          throw new Error(`Anhang '${attachment.name}' ist leer oder konnte nicht gelesen werden`);
         }
 
         const attachmentFormData = new FormData();
