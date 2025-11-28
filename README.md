@@ -3,7 +3,8 @@
 <p align="center">
   <img src="icons/icon-512.png" alt="Paperless Uploader Icon" width="256" height="256">
 </p>
-This Addon is based on https://github.com/sebastian-xyz/paperless-upload-thunderbird
+<p align="center">This Addon is based on https://github.com/sebastian-xyz/paperless-upload-thunderbird</p>
+
 ---
 
 ## Usage
@@ -34,17 +35,13 @@ This Addon is based on https://github.com/sebastian-xyz/paperless-upload-thunder
 ## Installation
 ### Default
 - Just search for the Add-On in Thunderbird and install it like any other.
-### Manual
-1. Download the latest release (`.xpi` file) from the [Releases](https://github.com/sebastian-xyz/paperless-upload-thunderbird/releases) page or build from source.
-2. In Thunderbird, go to **Add-ons and Themes** > **Extensions** > **Install Add-on From File...**
-3. Select the downloaded `.xpi` file and follow the prompts.
 
 ---
 
 ## Usage
 
 1. Open an email with a PDF attachment.
-2. Click the **Paperless Uploader** icon in the Thunderbird toolbar.
+2. Click the **Send to Paperless** icon in the Thunderbird toolbar.
 3. Configure your paperless-ngx server URL and API key in the add-on’s options (first use only).
 4. Rigth click the message and select the upload option.
 5. Receive a notification when the upload is complete.
@@ -53,7 +50,7 @@ This Addon is based on https://github.com/sebastian-xyz/paperless-upload-thunder
 
 ## Configuration
 
-Go to **Add-ons and Themes** > **Extensions** > **Paperless Uploader** > **Preferences** to set:
+Go to **Add-ons and Themes** > **Extensions** > **Send to Paperless** > **Preferences** to set:
 
 - **Server URL**: The base URL of your paperless-ngx instance
 - **API Key**: Your personal API key for authentication
@@ -71,11 +68,6 @@ Go to **Add-ons and Themes** > **Extensions** > **Paperless Uploader** > **Prefe
 
 ---
 
-## Contributing
-
-Contributions are welcome! Please open an issue or submit a pull request for bug fixes, features, or documentation improvements.
-
----
 
 ## License
 
