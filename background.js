@@ -603,9 +603,9 @@ async function uploadEmailWithAttachments(messageData, emailPdfData, selectedAtt
     }
 
     // Email PDF was accepted by Paperless-ngx - add tag to Thunderbird email
-    console.log('📧 Paperless-Tag: E-Mail-Upload erfolgreich, füge Tag hinzu...');
+    console.log('🏷️ Paperless-Tag: E-Mail-Upload erfolgreich, füge Tag hinzu...');
     addPaperlessTagToEmail(messageData.id).catch(e =>
-      console.warn("📧 Paperless-Tag: Fehler beim Taggen der E-Mail:", e)
+      console.warn("🏷️ Paperless-Tag: Fehler beim Taggen der E-Mail:", e)
     );
 
     // Get the task ID from the response
