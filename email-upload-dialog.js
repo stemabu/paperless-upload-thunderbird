@@ -3,6 +3,7 @@
 let currentMessage = null;
 let currentAttachments = [];
 let emailBody = '';
+let isHtmlBody = false;
 
 // Get file icon (emoji) based on file extension - used in the dialog UI
 function getFileIcon(filename) {
@@ -105,7 +106,16 @@ async function loadEmailData() {
 
     currentMessage = uploadData.message;
     currentAttachments = uploadData.attachments || [];
-    emailBody = uploadData.emailBody || '';
+    
+    // Handle both old string format and new object format from extractEmailBody
+    if (uploadData.emailBody && typeof uploadData.emailBody === 'object') {
+      emailBody = uploadData.emailBody.body || '';
+      isHtmlBody = uploadData.emailBody.isHtml || false;
+    } else {
+      emailBody = uploadData.emailBody || '';
+      // Auto-detect HTML content for backward compatibility
+      isHtmlBody = emailBody.includes('<html') || emailBody.includes('<body') || emailBody.includes('<div');
+    }
 
     console.log('📧 Email loaded:');
     console.log('📧 - From:', currentMessage.author);
@@ -117,6 +127,7 @@ async function loadEmailData() {
       console.log(`📧   [${i}] ${att.name} (${att.contentType}, ${att.size} bytes, partName: ${att.partName})`);
     });
     console.log('📧 - Email body length:', emailBody.length);
+    console.log('📧 - Is HTML body:', isHtmlBody);
 
     // Populate email info
     document.getElementById('emailFrom').textContent = currentMessage.author;
@@ -328,9 +339,10 @@ function getFileTypeIndicator(filename) {
   }
 }
 
-// Generate PDF from email
-function generateEmailPdf() {
+// Generate PDF from email (async to support HTML rendering)
+async function generateEmailPdf() {
   console.log('📄 Starting PDF generation...');
+  console.log('📄 Is HTML body:', isHtmlBody);
   
   // jsPDF is loaded from jspdf.umd.min.js as window.jspdf
   const { jsPDF } = window.jspdf;
@@ -469,29 +481,13 @@ function generateEmailPdf() {
 
   yPosition += 5; // Space after separator before body
 
-  // Email body
-  doc.setFont('helvetica', 'normal');
-  doc.setFontSize(11);
-  
-  // Process email body - extract plain text if HTML
-  let bodyText = emailBody;
-  if (bodyText.includes('<html') || bodyText.includes('<body') || bodyText.includes('<div')) {
-    bodyText = extractPlainTextFromHtml(bodyText);
-  }
-
-  // Split body into lines that fit the page width
-  const bodyLines = doc.splitTextToSize(bodyText, contentWidth);
-  const bodyLineHeight = 5;
-
-  for (const line of bodyLines) {
-    // Check if we need a new page
-    if (yPosition + bodyLineHeight > pageHeight - margin) {
-      doc.addPage();
-      yPosition = margin;
-    }
-    
-    doc.text(line, margin, yPosition);
-    yPosition += bodyLineHeight;
+  // Email body rendering
+  if (isHtmlBody && emailBody.trim()) {
+    console.log('📄 Rendering HTML body with html2canvas...');
+    await renderHtmlBodyToPdf(doc, emailBody, margin, yPosition, contentWidth, pageHeight);
+  } else {
+    console.log('📄 Rendering plain text body...');
+    renderPlainTextBody(doc, emailBody, margin, yPosition, contentWidth, pageHeight);
   }
 
   // Generate filename
@@ -514,28 +510,168 @@ function generateEmailPdf() {
   };
 }
 
-// Extract plain text from HTML
-function extractPlainTextFromHtml(html) {
+// Render HTML body to PDF using html2canvas
+async function renderHtmlBodyToPdf(doc, htmlContent, margin, startY, contentWidth, pageHeight) {
+  // Create a temporary container for rendering HTML
+  const container = document.createElement('div');
+  container.style.cssText = `
+    position: absolute;
+    left: -9999px;
+    top: -9999px;
+    width: ${contentWidth * 3.78}px;
+    background: white;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+    font-size: 12px;
+    line-height: 1.5;
+    color: #333;
+    padding: 10px;
+  `;
+  
+  // Sanitize and process HTML content
+  const sanitizedHtml = sanitizeHtmlForPdf(htmlContent);
+  container.innerHTML = sanitizedHtml;
+  
+  // Add to document for rendering
+  document.body.appendChild(container);
+  
+  try {
+    // Use html2canvas to render HTML to canvas
+    const canvas = await html2canvas(container, {
+      scale: 2, // Higher quality
+      useCORS: true,
+      logging: false,
+      backgroundColor: '#ffffff',
+      windowWidth: contentWidth * 3.78,
+      removeContainer: false
+    });
+    
+    console.log('📄 HTML rendered to canvas:', canvas.width, 'x', canvas.height);
+    
+    // Convert canvas to image and add to PDF
+    const imgData = canvas.toDataURL('image/jpeg', 0.95);
+    
+    // Calculate image dimensions
+    const imgWidth = contentWidth;
+    const imgHeight = (canvas.height * imgWidth) / canvas.width;
+    
+    // Check if image fits on current page
+    const availableHeight = pageHeight - startY - margin;
+    
+    if (imgHeight <= availableHeight) {
+      // Image fits on one page
+      doc.addImage(imgData, 'JPEG', margin, startY, imgWidth, imgHeight);
+    } else {
+      // Need to split across multiple pages
+      let remainingHeight = imgHeight;
+      let sourceY = 0;
+      let currentY = startY;
+      let isFirstPage = true;
+      
+      while (remainingHeight > 0) {
+        const pageAvailableHeight = isFirstPage ? availableHeight : (pageHeight - margin * 2);
+        const heightToDraw = Math.min(remainingHeight, pageAvailableHeight);
+        
+        // Calculate the portion of the original image to use
+        const sourceHeight = (heightToDraw / imgHeight) * canvas.height;
+        
+        // Create a temporary canvas for this portion
+        const tempCanvas = document.createElement('canvas');
+        tempCanvas.width = canvas.width;
+        tempCanvas.height = sourceHeight;
+        const tempCtx = tempCanvas.getContext('2d');
+        tempCtx.drawImage(canvas, 0, sourceY, canvas.width, sourceHeight, 0, 0, canvas.width, sourceHeight);
+        
+        const partImgData = tempCanvas.toDataURL('image/jpeg', 0.95);
+        doc.addImage(partImgData, 'JPEG', margin, currentY, imgWidth, heightToDraw);
+        
+        remainingHeight -= heightToDraw;
+        sourceY += sourceHeight;
+        
+        if (remainingHeight > 0) {
+          doc.addPage();
+          currentY = margin;
+          isFirstPage = false;
+        }
+      }
+    }
+    
+    console.log('📄 HTML body added to PDF');
+  } finally {
+    // Clean up
+    document.body.removeChild(container);
+  }
+}
+
+// Sanitize HTML for safe PDF rendering
+function sanitizeHtmlForPdf(html) {
   // Create a temporary element to parse HTML
   const tempDiv = document.createElement('div');
   tempDiv.innerHTML = html;
   
-  // Remove script and style elements
-  const scripts = tempDiv.querySelectorAll('script, style');
-  scripts.forEach(el => el.remove());
+  // Remove script, style, and other potentially problematic elements
+  const elementsToRemove = tempDiv.querySelectorAll('script, style, link, meta, head, iframe, frame, object, embed, form, input, button, select, textarea');
+  elementsToRemove.forEach(el => el.remove());
   
-  // Get text content
-  let text = tempDiv.textContent || tempDiv.innerText || '';
+  // Remove event handlers from all elements
+  const allElements = tempDiv.querySelectorAll('*');
+  allElements.forEach(el => {
+    // Remove all on* attributes
+    Array.from(el.attributes).forEach(attr => {
+      if (attr.name.startsWith('on')) {
+        el.removeAttribute(attr.name);
+      }
+    });
+    // Remove javascript: URLs
+    if (el.href && el.href.toLowerCase().startsWith('javascript:')) {
+      el.removeAttribute('href');
+    }
+  });
   
-  // Clean up whitespace
-  text = text
-    .replace(/\r\n/g, '\n')
-    .replace(/\r/g, '\n')
-    .replace(/\n{3,}/g, '\n\n')
-    .replace(/[ \t]+/g, ' ')
-    .trim();
+  // Add basic styling for common elements to improve rendering
+  const styleTag = document.createElement('style');
+  styleTag.textContent = `
+    body, html { margin: 0; padding: 0; }
+    p { margin: 0.5em 0; }
+    h1, h2, h3, h4, h5, h6 { margin: 0.5em 0; }
+    ul, ol { margin: 0.5em 0; padding-left: 1.5em; }
+    table { border-collapse: collapse; margin: 0.5em 0; }
+    td, th { padding: 4px 8px; border: 1px solid #ddd; }
+    img { max-width: 100%; height: auto; }
+    a { color: #0066cc; text-decoration: underline; }
+    blockquote { margin: 0.5em 0; padding-left: 1em; border-left: 3px solid #ccc; color: #666; }
+    pre, code { font-family: monospace; background: #f5f5f5; padding: 2px 4px; }
+    hr { border: none; border-top: 1px solid #ddd; margin: 1em 0; }
+  `;
   
-  return text;
+  // Insert style at the beginning
+  tempDiv.insertBefore(styleTag, tempDiv.firstChild);
+  
+  return tempDiv.innerHTML;
+}
+
+// Render plain text body to PDF
+function renderPlainTextBody(doc, text, margin, startY, contentWidth, pageHeight) {
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(11);
+  
+  // Clean up the text
+  let bodyText = text;
+  
+  // Split body into lines that fit the page width
+  const bodyLines = doc.splitTextToSize(bodyText, contentWidth);
+  const bodyLineHeight = 5;
+  let yPosition = startY;
+
+  for (const line of bodyLines) {
+    // Check if we need a new page
+    if (yPosition + bodyLineHeight > pageHeight - margin) {
+      doc.addPage();
+      yPosition = margin;
+    }
+    
+    doc.text(line, margin, yPosition);
+    yPosition += bodyLineHeight;
+  }
 }
 
 // Get selected attachments
@@ -586,7 +722,7 @@ async function handleUpload(event) {
 
     // Generate PDF from email
     console.log('📤 Generating email PDF...');
-    const { blob: pdfBlob, filename: pdfFilename } = generateEmailPdf();
+    const { blob: pdfBlob, filename: pdfFilename } = await generateEmailPdf();
     console.log('📤 Generated PDF:', pdfFilename, 'size:', pdfBlob.size);
 
     // Convert blob to base64
