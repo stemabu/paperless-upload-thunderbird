@@ -1,11 +1,11 @@
 {
   "manifest_version": 3,
-  "name": "Paperless-ngx Upload",
+  "name": "Send to Paperless-ngx",
   "version": "0.8.3",
-  "description": "Upload Emails and attachments directly to Paperless-ngx from Thunderbird",
+  "description": "Send Emails and attachments to Paperless-ngx from Thunderbird",
   "browser_specific_settings": {
     "gecko": {
-      "id": "@paperless-upload.stemabu",
+      "id": "@send2paperless.stemabu",
       "strict_min_version": "140.0"
     }
   },
@@ -29,12 +29,12 @@
     ]
   },
   "message_display_action": {
-    "default_title": "Paperless Upload",
+    "default_title": "Send to Paperless",
     "default_popup": "message-display-popup.html",
     "default_icon": "icons/icon-32.png"
   },
   "action": {
-    "default_title": "Paperless Upload",
+    "default_title": "Send to Paperless",
     "default_popup": "popup.html",
     "default_icon": "icons/icon-32.png"
   },
