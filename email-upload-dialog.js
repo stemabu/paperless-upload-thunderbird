@@ -555,14 +555,10 @@ async function renderHtmlBodyToPdf(doc, htmlContent, margin, startY, contentWidt
   } catch (error) {
     console.error('📄 Error parsing HTML:', error);
     // Fallback: use DOMParser to safely extract text content
-    try {
-      const parser = new DOMParser();
-      const parsedDoc = parser.parseFromString(htmlContent, 'text/html');
-      container.textContent = parsedDoc.body.textContent || '';
-    } catch (parseError) {
-      // Last resort fallback: use a simple regex to strip HTML tags
-      container.textContent = htmlContent.replace(/<[^>]*>/g, '');
-    }
+    // DOMParser always succeeds even with malformed HTML
+    const parser = new DOMParser();
+    const parsedDoc = parser.parseFromString(htmlContent, 'text/html');
+    container.textContent = parsedDoc.body ? parsedDoc.body.textContent : '';
     console.log('📄 Fell back to plain text extraction');
   }
   
