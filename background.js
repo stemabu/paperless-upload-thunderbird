@@ -211,34 +211,36 @@ async function openEmailUploadDialog(message) {
 }
 
 // Extract email body from full message
+// Returns HTML body if available (preferred for formatting), otherwise plain text
 function extractEmailBody(fullMessage) {
-  let body = '';
+  let htmlBody = '';
+  let plainBody = '';
   
-  // Recursive function to find the body part
+  // Recursive function to find body parts
   function findBody(part) {
     if (part.body) {
-      // Prefer text/plain, but use text/html as fallback
-      if (part.contentType === 'text/plain' || !part.contentType) {
-        body = part.body;
-        return true;
-      }
-      if (part.contentType === 'text/html' && !body) {
-        body = part.body;
+      if (part.contentType === 'text/html') {
+        htmlBody = part.body;
+      } else if (part.contentType === 'text/plain' || !part.contentType) {
+        plainBody = part.body;
       }
     }
     
     if (part.parts) {
       for (const subPart of part.parts) {
-        if (findBody(subPart)) {
-          return true;
-        }
+        findBody(subPart);
       }
     }
-    return false;
   }
   
   findBody(fullMessage);
-  return body;
+  
+  // Return HTML if available (preferred for formatting), otherwise plain text
+  // Also return isHtml flag to indicate content type
+  if (htmlBody) {
+    return { body: htmlBody, isHtml: true };
+  }
+  return { body: plainBody, isHtml: false };
 }
 
 // Get or create custom field by name
