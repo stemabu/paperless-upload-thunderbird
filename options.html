@@ -216,8 +216,7 @@
     <div style="display: flex; align-items: center; justify-content: center; margin-bottom: 20px;">
       <img src="icons/icon-64.png" alt="Paperless PDF Uploader" style="height: 2.5em; width: 2.5em; margin-right: 15px;">
       <div>
-        <div style="font-size: 1.5em; font-weight: bold; color: #2c3e50;">Paperless-ngx</div>
-        <div style="font-size: 1.5em; font-weight: bold; color: #2c3e50;">Uploader-Einstellungen</div>
+        <div style="font-size: 1em; font-weight: bold; color: #2c3e50;">Einstellungen (Send to Paperless-ngx)</div>
       </div>
     </div>
 
@@ -227,19 +226,19 @@
 
     <form id="settingsForm">
       <div class="form-group">
-        <label for="paperlessUrl">Paperless-ngx URL:</label>
+        <label for="paperlessUrl">Paperless-ngx-URL:</label>
         <input type="url" id="paperlessUrl" name="paperlessUrl" placeholder="https://paperless.yourdomain.com" required>
         <div class="help-text">Include http:// or https:// (no trailing slash)</div>
       </div>
 
       <div class="form-group">
-        <label for="paperlessToken">API Token:</label>
+        <label for="paperlessToken">API-Token:</label>
         <input type="text" id="paperlessToken" name="paperlessToken" placeholder="your-api-token-here" required>
         <div class="help-text">Your Paperless-ngx API authentication token</div>
       </div>
 
       <div class="form-group">
-        <label for="defaultTags">Default Tags (optional):</label>
+        <label for="defaultTags">Default-Tags (optional):</label>
         <input type="text" id="defaultTags" name="defaultTags" placeholder="email, thunderbird, imported">
         <div class="help-text">Comma-separated tags to apply to uploaded documents</div>
       </div>
