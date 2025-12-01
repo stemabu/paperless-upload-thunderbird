@@ -1030,34 +1030,43 @@ function sanitizeHtmlForGotenberg(html) {
   
   let sanitized = html;
   
-  // 1. Remove script tags and their content
-  sanitized = sanitized.replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '');
+  // 1. Remove script tags and their content (handles CDATA and various variations)
+  sanitized = sanitized.replace(/<script\b[^>]*>([\s\S]*?)<\/script>/gi, '');
+  // Also catch unclosed script tags
+  sanitized = sanitized.replace(/<script\b[^>]*>/gi, '');
   
   // 2. Remove style tags (we'll add our own styles)
   // Note: Keep inline styles but remove style blocks
-  sanitized = sanitized.replace(/<style\b[^<]*(?:(?!<\/style>)<[^<]*)*<\/style>/gi, '');
+  sanitized = sanitized.replace(/<style\b[^>]*>([\s\S]*?)<\/style>/gi, '');
+  sanitized = sanitized.replace(/<style\b[^>]*>/gi, '');
   
   // 3. Remove dangerous tags
-  const dangerousTags = ['iframe', 'frame', 'frameset', 'object', 'embed', 'applet', 'form', 'input', 'button', 'select', 'textarea'];
+  const dangerousTags = ['iframe', 'frame', 'frameset', 'object', 'embed', 'applet', 'form', 'input', 'button', 'select', 'textarea', 'link', 'meta', 'base'];
   dangerousTags.forEach(tag => {
-    // Remove self-closing and opening tags
+    // Remove opening tags with any content up to closing tag
+    sanitized = sanitized.replace(new RegExp(`<${tag}\\b[^>]*>([\\s\\S]*?)<\\/${tag}>`, 'gi'), '');
+    // Remove self-closing and unclosed tags
     sanitized = sanitized.replace(new RegExp(`<${tag}\\b[^>]*\\/?>`, 'gi'), '');
-    // Remove closing tags
+    // Remove orphan closing tags
     sanitized = sanitized.replace(new RegExp(`<\\/${tag}>`, 'gi'), '');
   });
   
   // 4. Remove event handlers (on* attributes)
+  // Handle quoted values
   sanitized = sanitized.replace(/\s+on\w+\s*=\s*["'][^"']*["']/gi, '');
-  sanitized = sanitized.replace(/\s+on\w+\s*=\s*[^\s>]+/gi, '');
+  // Handle unquoted values
+  sanitized = sanitized.replace(/\s+on\w+\s*=\s*[^\s>"']+/gi, '');
   
   // 5. Remove javascript: and vbscript: URLs in href and src attributes
-  sanitized = sanitized.replace(/href\s*=\s*["']?\s*javascript:[^"'\s>]*/gi, 'href="#"');
-  sanitized = sanitized.replace(/href\s*=\s*["']?\s*vbscript:[^"'\s>]*/gi, 'href="#"');
-  sanitized = sanitized.replace(/src\s*=\s*["']?\s*javascript:[^"'\s>]*/gi, 'src=""');
-  sanitized = sanitized.replace(/src\s*=\s*["']?\s*vbscript:[^"'\s>]*/gi, 'src=""');
+  // Handle quoted and unquoted values
+  sanitized = sanitized.replace(/href\s*=\s*(["']?)\s*javascript:[^"'\s>]*\1/gi, 'href="#"');
+  sanitized = sanitized.replace(/href\s*=\s*(["']?)\s*vbscript:[^"'\s>]*\1/gi, 'href="#"');
+  sanitized = sanitized.replace(/src\s*=\s*(["']?)\s*javascript:[^"'\s>]*\1/gi, 'src=""');
+  sanitized = sanitized.replace(/src\s*=\s*(["']?)\s*vbscript:[^"'\s>]*\1/gi, 'src=""');
   
   // 6. Remove data: URLs in src attributes (can contain embedded scripts)
-  sanitized = sanitized.replace(/src\s*=\s*["']?\s*data:[^"'\s>]*/gi, 'src=""');
+  // Handle both quoted and unquoted attributes
+  sanitized = sanitized.replace(/src\s*=\s*(["']?)\s*data:[^"'\s>]*\1/gi, 'src=""');
   
   console.log('📧 Sanitized HTML length:', sanitized.length);
   
