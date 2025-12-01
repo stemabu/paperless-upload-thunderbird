@@ -40,7 +40,7 @@ function ensureFromHeaderAtBeginning(emlContent) {
   }
   
   console.log('📧 String length after conversion:', emlString.length);
-  console.log('📧 First 200 chars of string:', emlString.substring(0, 200));
+  console.log('📧 First 200 chars:', emlString.substring(0, 200));
   
   const lines = emlString.split(/\r?\n/);
   
