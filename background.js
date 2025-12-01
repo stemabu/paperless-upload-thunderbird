@@ -21,19 +21,26 @@ const UTF8_DECODER = new TextDecoder('utf-8');
 // See: Paperless-ngx mail.py lines 916-933
 function ensureFromHeaderAtBeginning(emlContent) {
   console.log('📧 Processing EML for libmagic compatibility');
+  console.log('📧 Input type:', typeof emlContent);
+  console.log('📧 Input length:', emlContent ? emlContent.length : 0);
   
   let emlString;
   if (typeof emlContent === 'string') {
     // Already a string
     emlString = emlContent;
+    console.log('📧 Input was already a string');
   } else if (emlContent instanceof ArrayBuffer || ArrayBuffer.isView(emlContent)) {
     // Thunderbird 140+ returns ArrayBuffer or Uint8Array from getRaw()
     emlString = UTF8_DECODER.decode(emlContent);
+    console.log('📧 Decoded ArrayBuffer/TypedArray to string');
   } else {
     // Fallback: try to convert to string
     console.warn('📧 Unexpected emlContent type:', typeof emlContent);
     emlString = String(emlContent);
   }
+  
+  console.log('📧 String length after conversion:', emlString.length);
+  console.log('📧 First 200 chars of string:', emlString.substring(0, 200));
   
   const lines = emlString.split(/\r?\n/);
   
@@ -55,6 +62,9 @@ function ensureFromHeaderAtBeginning(emlContent) {
   } else {
     console.log('📧 No From header found in EML');
   }
+  
+  console.log('📧 Output length:', emlString.length);
+  console.log('📧 Output first 200 chars:', emlString.substring(0, 200));
   
   // Return string directly - Blob constructor can handle strings
   // Do NOT use TextEncoder here - not needed for Blob constructor
@@ -1432,22 +1442,38 @@ async function uploadEmailAsEml(messageData, selectedAttachments, direction, cor
       console.error('📧 Error getting/creating E-Mail-Anhang document type:', typeError);
     }
 
-    // Get .eml file from Thunderbird
-    console.log('📧 Getting .eml file from Thunderbird...');
-    let emlFile;
+    // Get .eml file from Thunderbird - always fetch fresh without caching
+    console.log('📧 Getting .eml file from Thunderbird for message ID:', messageData.id);
+    let emlContent;
     try {
-      emlFile = await browser.messages.getRaw(messageData.id);
-      if (!emlFile || emlFile.length === 0) {
+      // Force fresh fetch by calling getRaw directly each time
+      const rawContent = await browser.messages.getRaw(messageData.id);
+      
+      if (!rawContent || rawContent.length === 0) {
         throw new Error('E-Mail-Inhalt ist leer');
       }
-      console.log('📧 Raw EML size:', emlFile.length, 'bytes');
+      
+      console.log('📧 Raw EML size:', rawContent.length, 'bytes');
+      console.log('📧 Raw EML type:', typeof rawContent);
+      // Use 400 bytes buffer to avoid cutting multi-byte UTF-8 characters
+      try {
+        const previewChars = typeof rawContent === 'string' 
+          ? rawContent.substring(0, 200)
+          : UTF8_DECODER.decode(rawContent.slice(0, 400)).substring(0, 200);
+        console.log('📧 Raw EML first 200 chars:', previewChars);
+      } catch (previewError) {
+        console.log('📧 Raw EML preview failed (encoding issue):', previewError.message);
+      }
       
       // WORKAROUND for libmagic MIME-type detection:
       // libmagic often fails to recognize message/rfc822 when From: is not at the start.
       // Moving the From-header to the beginning ensures correct detection.
       // See: Paperless-ngx mail.py lines 916-933
-      emlFile = ensureFromHeaderAtBeginning(emlFile);
-      console.log('📧 Processed EML size:', emlFile.length, 'bytes');
+      emlContent = ensureFromHeaderAtBeginning(rawContent);
+      
+      console.log('📧 Processed EML size:', emlContent.length, 'bytes');
+      console.log('📧 Processed EML type:', typeof emlContent);
+      console.log('📧 Processed EML first 200 chars:', emlContent.substring(0, 200));
       
     } catch (emlError) {
       console.error('📧 Error getting raw email:', emlError);
@@ -1466,7 +1492,7 @@ async function uploadEmailAsEml(messageData, selectedAttachments, direction, cor
     // IMPORTANT: Do not specify MIME type in Blob constructor.
     // This allows Paperless to use libmagic for detection, which will now
     // correctly identify message/rfc822 thanks to the From-header workaround.
-    const emlBlob = new Blob([emlFile]);
+    const emlBlob = new Blob([emlContent]);
     console.log('📧 EML blob size:', emlBlob.size);
 
     // Upload EML file
