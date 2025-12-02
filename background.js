@@ -1021,6 +1021,24 @@ function sanitizeHtmlForGotenberg(html) {
   return sanitized;
 }
 
+// Get icon for file type
+function getFileIcon(filename) {
+  const ext = filename.toLowerCase().split('.').pop();
+  const iconMap = {
+    'pdf': '📄',
+    'doc': '📝', 'docx': '📝', 'odt': '📝',
+    'xls': '📊', 'xlsx': '📊', 'ods': '📊', 'csv': '📊',
+    'ppt': '📊', 'pptx': '📊', 'odp': '📊',
+    'txt': '📝', 'rtf': '📝',
+    'jpg': '🖼️', 'jpeg': '🖼️', 'png': '🖼️', 'gif': '🖼️', 'bmp': '🖼️', 'svg': '🖼️',
+    'zip': '📦', 'rar': '📦', '7z': '📦', 'tar': '📦', 'gz': '📦',
+    'eml': '📧', 'msg': '📧',
+    'mp3': '🎵', 'wav': '🎵', 'ogg': '🎵',
+    'mp4': '🎬', 'avi': '🎬', 'mkv': '🎬', 'mov': '🎬'
+  };
+  return iconMap[ext] || '📎';
+}
+
 // Create HTML template for email (for Gotenberg conversion)
 // Based on Paperless-ngx email_msg_template.html but simplified with inline CSS
 function createEmailHtml(messageData, emailBodyData, selectedAttachments) {
@@ -1046,8 +1064,8 @@ function createEmailHtml(messageData, emailBodyData, selectedAttachments) {
   let attachmentsSection = '';
   if (selectedAttachments && selectedAttachments.length > 0) {
     const attachmentList = selectedAttachments.map(att => 
-      `${escapeHtml(att.name)} (${formatFileSize(att.size)})`
-    ).join(', ');
+      `<div>${getFileIcon(att.name)} ${escapeHtml(att.name)} (${formatFileSize(att.size)})</div>`
+    ).join('');
     attachmentsSection = `
       <div class="header-row">
         <span class="header-label">Anhänge:</span>
@@ -1080,12 +1098,12 @@ function createEmailHtml(messageData, emailBodyData, selectedAttachments) {
       border-radius: 4px;
     }
     .header-row {
-      margin: 8px 0;
+      margin: 4px 0;
       display: flex;
     }
     .header-label {
       color: #64748b;
-      min-width: 80px;
+      min-width: 60px;
       text-align: right;
       padding-right: 12px;
       font-weight: 500;
@@ -1096,11 +1114,7 @@ function createEmailHtml(messageData, emailBodyData, selectedAttachments) {
     }
     .subject {
       font-weight: bold;
-    }
-    .date {
-      color: #64748b;
-      float: right;
-      font-size: 13px;
+      font-size: 15px;
     }
     .separator {
       border-top: 1px solid #cbd5e1;
@@ -1114,24 +1128,30 @@ function createEmailHtml(messageData, emailBodyData, selectedAttachments) {
     .attachments-list {
       color: #475569;
       font-size: 13px;
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
     }
   </style>
 </head>
 <body>
   <div class="container">
     <div class="header">
-      <div class="date">${escapeHtml(dateStr)}</div>
+      <div class="header-row">
+        <span class="header-label">Datum:</span>
+        <span class="header-value">${escapeHtml(dateStr)}</span>
+      </div>
       <div class="header-row">
         <span class="header-label">Von:</span>
         <span class="header-value">${escapeHtml(messageData.author || '')}</span>
       </div>
       <div class="header-row">
-        <span class="header-label">Betreff:</span>
-        <span class="header-value subject">${escapeHtml(messageData.subject || 'Kein Betreff')}</span>
-      </div>
-      <div class="header-row">
         <span class="header-label">An:</span>
         <span class="header-value">${escapeHtml(toRecipients)}</span>
+      </div>
+      <div class="header-row">
+        <span class="header-label">Betreff:</span>
+        <span class="header-value subject">${escapeHtml(messageData.subject || 'Kein Betreff')}</span>
       </div>
       ${attachmentsSection}
     </div>
