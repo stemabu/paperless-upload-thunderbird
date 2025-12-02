@@ -1023,12 +1023,13 @@ function sanitizeHtmlForGotenberg(html) {
 
 // Get icon for file type
 function getFileIcon(filename) {
-  const ext = filename.toLowerCase().split('.').pop();
+  const parts = filename.toLowerCase().split('.');
+  const ext = parts.length > 1 ? parts.pop() : '';
   const iconMap = {
     'pdf': '📄',
     'doc': '📝', 'docx': '📝', 'odt': '📝',
     'xls': '📊', 'xlsx': '📊', 'ods': '📊', 'csv': '📊',
-    'ppt': '📊', 'pptx': '📊', 'odp': '📊',
+    'ppt': '📽️', 'pptx': '📽️', 'odp': '📽️',
     'txt': '📝', 'rtf': '📝',
     'jpg': '🖼️', 'jpeg': '🖼️', 'png': '🖼️', 'gif': '🖼️', 'bmp': '🖼️', 'svg': '🖼️',
     'zip': '📦', 'rar': '📦', '7z': '📦', 'tar': '📦', 'gz': '📦',
