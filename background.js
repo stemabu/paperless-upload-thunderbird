@@ -1115,13 +1115,13 @@ function createEmailHtml(messageData, emailBodyData, selectedAttachments, thunde
     }
     .header {
       background: #e2e8f0;
-      padding: 20px;
+      padding: 16px 20px;
       margin-bottom: 20px;
       border-radius: 4px;
     }
     .header-row {
-      margin: 4px 0;
-      line-height: 1.6;
+      margin: 2px 0;
+      line-height: 1.4;
     }
     .header-label {
       color: #64748b;
@@ -1176,6 +1176,21 @@ function createEmailHtml(messageData, emailBodyData, selectedAttachments, thunde
     }
     .tags-container {
       display: inline;
+    }
+    /* Quotes - Thunderbird-style */
+    blockquote { 
+      margin: 0.5em 0; 
+      padding-left: 12px; 
+      border-left: 3px solid #3b82f6;
+      color: #475569; 
+      font-style: normal;
+    }
+    /* Email quote markers (lines starting with >) */
+    .email-quote {
+      margin: 0.5em 0;
+      padding-left: 12px;
+      border-left: 3px solid #3b82f6;
+      color: #475569;
     }
   </style>
 </head>
