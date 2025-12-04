@@ -1121,17 +1121,21 @@ function createEmailHtml(messageData, emailBodyData, selectedAttachments, thunde
     }
     .header-row {
       margin: 4px 0;
-      display: flex;
+      line-height: 1.6;
     }
     .header-label {
       color: #64748b;
-      min-width: 60px;
+      min-width: 110px;
       text-align: right;
       padding-right: 12px;
       font-weight: 500;
+      display: inline-block;
+      vertical-align: top;
     }
     .header-value {
-      flex: 1;
+      display: inline-block;
+      vertical-align: top;
+      max-width: calc(100% - 122px); /* 110px (label min-width) + 12px (label padding-right) */
       word-break: break-word;
     }
     .subject {
@@ -1156,19 +1160,18 @@ function createEmailHtml(messageData, emailBodyData, selectedAttachments, thunde
     }
     .tag-badge {
       display: inline-block;
-      padding: 3px 10px;
-      margin: 2px 4px 2px 0;
-      border-radius: 12px;
+      padding: 2px 8px;
+      margin: 0 4px 0 0;
+      border-radius: 10px;
       font-size: 12px;
       font-weight: 500;
       color: white;
       text-shadow: 0 1px 1px rgba(0,0,0,0.2);
+      vertical-align: baseline;
+      line-height: 1.4;
     }
     .tags-container {
-      display: flex;
-      flex-wrap: wrap;
-      align-items: center;
-      gap: 4px;
+      display: inline;
     }
   </style>
 </head>
