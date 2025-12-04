@@ -344,7 +344,7 @@ async function getOrCreateCustomField(config, fieldName, fieldType, selectOption
 async function getOrCreateDocumentType(config, typeName) {
   try {
     // First, try to find existing document type
-    const response = await fetch(`${config.url}/api/document_types/`, {
+    const response = await fetch(`${config.url}/api/document_types/?page_size=1000`, {
       headers: { 'Authorization': `Token ${config.token}` }
     });
 
@@ -1993,7 +1993,7 @@ browser.runtime.onMessage.addListener(async (message, sender, sendResponse) => {
   if (message.action === "getCorrespondents") {
     try {
       const config = await getPaperlessConfig();
-      const response = await fetch(`${config.url}/api/correspondents/`, {
+      const response = await fetch(`${config.url}/api/correspondents/?page_size=1000`, {
         headers: { 'Authorization': `Token ${config.token}` }
       });
 
@@ -2012,7 +2012,7 @@ browser.runtime.onMessage.addListener(async (message, sender, sendResponse) => {
   if (message.action === "getDocumentTypes") {
     try {
       const config = await getPaperlessConfig();
-      const response = await fetch(`${config.url}/api/document_types/`, {
+      const response = await fetch(`${config.url}/api/document_types/?page_size=1000`, {
         headers: { 'Authorization': `Token ${config.token}` }
       });
 
@@ -2031,7 +2031,7 @@ browser.runtime.onMessage.addListener(async (message, sender, sendResponse) => {
   if (message.action === "getTags") {
     try {
       const config = await getPaperlessConfig();
-      const response = await fetch(`${config.url}/api/tags/`, {
+      const response = await fetch(`${config.url}/api/tags/?page_size=1000`, {
         headers: { 'Authorization': `Token ${config.token}` }
       });
 
