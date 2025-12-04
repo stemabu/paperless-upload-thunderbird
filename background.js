@@ -1091,7 +1091,7 @@ function createEmailHtml(messageData, emailBodyData, selectedAttachments, thunde
     attachmentsSection = `
       <div class="header-row">
         <span class="header-label">Anhänge:</span>
-        <span class="header-value attachments-list">${attachmentList}</span>
+        <span class="header-value-block attachments-list">${attachmentList}</span>
       </div>
     `;
   }
@@ -1138,6 +1138,13 @@ function createEmailHtml(messageData, emailBodyData, selectedAttachments, thunde
       max-width: calc(100% - 122px); /* 110px (label min-width) + 12px (label padding-right) */
       word-break: break-word;
     }
+    .header-value-block {
+      display: inline-flex;
+      flex-direction: column;
+      vertical-align: top;
+      max-width: calc(100% - 122px);
+      gap: 2px;
+    }
     .subject {
       font-weight: bold;
       font-size: 15px;
@@ -1154,9 +1161,6 @@ function createEmailHtml(messageData, emailBodyData, selectedAttachments, thunde
     .attachments-list {
       color: #475569;
       font-size: 13px;
-      display: flex;
-      flex-direction: column;
-      gap: 2px;
     }
     .tag-badge {
       display: inline-block;
