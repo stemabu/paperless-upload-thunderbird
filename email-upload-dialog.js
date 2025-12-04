@@ -271,7 +271,7 @@ async function loadCorrespondents() {
       return;
     }
 
-    const response = await makePaperlessRequest('/api/correspondents/', {}, settings);
+    const response = await makePaperlessRequest('/api/correspondents/?page_size=1000', {}, settings);
 
     if (response.ok) {
       const data = await response.json();
@@ -296,7 +296,7 @@ async function loadTags() {
       return;
     }
 
-    const response = await makePaperlessRequest('/api/tags/', {}, settings);
+    const response = await makePaperlessRequest('/api/tags/?page_size=1000', {}, settings);
 
     if (response.ok) {
       const data = await response.json();

@@ -72,7 +72,7 @@ async function repopulateCorrespondents() {
     const settings = await getPaperlessSettings();
     if (!settings.paperlessUrl || !settings.paperlessToken) return;
 
-    const response = await makePaperlessRequest('/api/correspondents/', {}, settings);
+    const response = await makePaperlessRequest('/api/correspondents/?page_size=1000', {}, settings);
 
     if (response.ok) {
       const data = await response.json();
@@ -109,7 +109,7 @@ async function repopulateDocumentTypes() {
     const settings = await getPaperlessSettings();
     if (!settings.paperlessUrl || !settings.paperlessToken) return;
 
-    const response = await makePaperlessRequest('/api/document_types/', {}, settings);
+    const response = await makePaperlessRequest('/api/document_types/?page_size=1000', {}, settings);
 
     if (response.ok) {
       const data = await response.json();
@@ -197,7 +197,7 @@ async function loadPaperlessData() {
     let correspondents = [];
     if (settings.paperlessUrl && settings.paperlessToken) {
       try {
-        const response = await makePaperlessRequest('/api/correspondents/', {}, settings);
+        const response = await makePaperlessRequest('/api/correspondents/?page_size=1000', {}, settings);
         if (response.ok) {
           const data = await response.json();
           // Store both name and id for each correspondent
@@ -226,7 +226,7 @@ async function loadPaperlessData() {
     // Fetch document types from Paperless-ngx API if settings are available
     if (settings.paperlessUrl && settings.paperlessToken) {
       try {
-        const response = await makePaperlessRequest('/api/document_types/', {}, settings);
+        const response = await makePaperlessRequest('/api/document_types/?page_size=1000', {}, settings);
         if (response.ok) {
           const data = await response.json();
           // Store document types
@@ -253,7 +253,7 @@ async function loadPaperlessData() {
     // Fetch tags from Paperless-ngx API if settings are available
     if (settings.paperlessUrl && settings.paperlessToken) {
       try {
-        const response = await makePaperlessRequest('/api/tags/', {}, settings);
+        const response = await makePaperlessRequest('/api/tags/?page_size=1000', {}, settings);
         if (response.ok) {
           const data = await response.json();
           // Store tags
