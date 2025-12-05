@@ -1589,16 +1589,30 @@ async function uploadEmailAsHtml(messageData, selectedAttachments, direction, co
             );
             
             // Step 2: Extract boundary from Content-Type header
-            const boundaryMatch = mimeContent.match(/boundary="([^"]+)"/);
+            // Handle quoted boundaries (double or single quotes) and unquoted boundaries per RFC 2046
+            const boundaryMatch = mimeContent.match(/boundary=(?:"([^"]+)"|'([^']+)'|([^\s;]+))/i);
             
             if (!boundaryMatch) {
               console.warn('⚠️ [uploadEmailAsHtml] No boundary found, using content after headers');
-              // Use everything after the first blank line
-              const blankLineIndex = mimeContent.indexOf('\r\n\r\n');
-              emailBodyData.body = blankLineIndex !== -1 ? mimeContent.substring(blankLineIndex + 4) : mimeContent;
+              // Use everything after the first blank line (handle both CRLF and LF)
+              const crlfIndex = mimeContent.indexOf('\r\n\r\n');
+              const lfIndex = mimeContent.indexOf('\n\n');
+              let blankLineIndex, separatorLength;
+              if (crlfIndex !== -1 && (lfIndex === -1 || crlfIndex < lfIndex)) {
+                blankLineIndex = crlfIndex;
+                separatorLength = 4;
+              } else if (lfIndex !== -1) {
+                blankLineIndex = lfIndex;
+                separatorLength = 2;
+              } else {
+                blankLineIndex = -1;
+                separatorLength = 0;
+              }
+              emailBodyData.body = blankLineIndex !== -1 ? mimeContent.substring(blankLineIndex + separatorLength) : mimeContent;
               emailBodyData.isHtml = false;
             } else {
-              const boundary = boundaryMatch[1];
+              // Extract boundary from whichever capture group matched
+              const boundary = boundaryMatch[1] || boundaryMatch[2] || boundaryMatch[3];
               console.log('🔍 [uploadEmailAsHtml] Found boundary:', boundary);
               
               // Step 3: Split by boundary
@@ -1608,25 +1622,43 @@ async function uploadEmailAsHtml(messageData, selectedAttachments, direction, co
               let htmlPart = null;
               let textPart = null;
               
-              // Step 4: Parse each part
-              for (let i = 1; i < parts.length - 1; i++) {  // Skip first (preamble) and last (epilogue)
+              // Helper function to find blank line handling both CRLF and LF
+              const findBlankLine = (str) => {
+                const crlfIndex = str.indexOf('\r\n\r\n');
+                const lfIndex = str.indexOf('\n\n');
+                if (crlfIndex !== -1 && (lfIndex === -1 || crlfIndex < lfIndex)) {
+                  return { index: crlfIndex, length: 4 };
+                } else if (lfIndex !== -1) {
+                  return { index: lfIndex, length: 2 };
+                }
+                return { index: -1, length: 0 };
+              };
+              
+              // Step 4: Parse each part (skip first which is preamble)
+              for (let i = 1; i < parts.length; i++) {
                 const part = parts[i];
                 
-                // Extract headers and body
-                const headerEndIndex = part.indexOf('\r\n\r\n');
-                if (headerEndIndex === -1) continue;
+                // Check if this is the epilogue (starts with --)
+                if (part.trimStart().startsWith('--')) {
+                  console.log('🔍 [uploadEmailAsHtml] Part', i, 'is epilogue, skipping');
+                  continue;
+                }
                 
-                const headers = part.substring(0, headerEndIndex);
-                const body = part.substring(headerEndIndex + 4).trim();
+                // Extract headers and body (handle both CRLF and LF line endings)
+                const blankLine = findBlankLine(part);
+                if (blankLine.index === -1) continue;
+                
+                const headers = part.substring(0, blankLine.index);
+                const body = part.substring(blankLine.index + blankLine.length).trim();
                 
                 console.log('🔍 [uploadEmailAsHtml] Part', i, 'headers:', headers.substring(0, 200));
                 console.log('🔍 [uploadEmailAsHtml] Part', i, 'body length:', body.length);
                 
-                // Check Content-Type
-                if (headers.includes('Content-Type: text/html')) {
+                // Check Content-Type (case-insensitive, handle parameters like charset)
+                if (/content-type:\s*text\/html/i.test(headers)) {
                   htmlPart = body;
                   console.log('🔍 [uploadEmailAsHtml] Found HTML part, length:', body.length);
-                } else if (headers.includes('Content-Type: text/plain')) {
+                } else if (/content-type:\s*text\/plain/i.test(headers)) {
                   textPart = body;
                   console.log('🔍 [uploadEmailAsHtml] Found plain text part, length:', body.length);
                 }
@@ -1646,8 +1678,8 @@ async function uploadEmailAsHtml(messageData, selectedAttachments, direction, co
                 // Fallback: use first part after boundary
                 if (parts.length > 1) {
                   const firstPart = parts[1];
-                  const headerEndIndex = firstPart.indexOf('\r\n\r\n');
-                  emailBodyData.body = headerEndIndex !== -1 ? firstPart.substring(headerEndIndex + 4).trim() : firstPart.trim();
+                  const blankLine = findBlankLine(firstPart);
+                  emailBodyData.body = blankLine.index !== -1 ? firstPart.substring(blankLine.index + blankLine.length).trim() : firstPart.trim();
                   emailBodyData.isHtml = false;
                 } else {
                   emailBodyData.body = mimeContent;
