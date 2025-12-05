@@ -10,11 +10,22 @@ const PAPERLESS_TAG_PREFERRED_KEY = "paperless"; // desired key when creating ne
 const PAPERLESS_TAG_LABEL = "Paperless";
 const PAPERLESS_TAG_COLOR = "#007bff";
 
+// Maximum bytes to check/remove for binary prefix in S/MIME decoded content
+// S/MIME containers may have 4-byte headers (e.g., \u0004\u0010\u0000) before actual content
+const MAX_BINARY_PREFIX_BYTES = 20;
+
 let currentPdfAttachments = [];
 let currentMessage = null;
 
 // Reusable TextDecoder for efficient decoding of ArrayBuffer/TypedArray
 const UTF8_DECODER = new TextDecoder('utf-8');
+
+// Check if a character code represents a printable character or common whitespace
+// Printable ASCII: >= 0x20 (space and above)
+// Common whitespace: 0x09 (tab), 0x0A (newline), 0x0D (carriage return)
+function isPrintableOrWhitespace(charCode) {
+  return charCode >= 0x20 || charCode === 0x09 || charCode === 0x0A || charCode === 0x0D;
+}
 
 // Decode Quoted-Printable encoded text
 // Converts =XX (hex) sequences to characters and removes soft line breaks
@@ -1715,22 +1726,18 @@ async function uploadEmailAsHtml(messageData, selectedAttachments, direction, co
                   }
 
                   // Remove binary prefix that may exist before actual content
-                  // S/MIME containers sometimes have 4-byte headers (e.g., \u0004�\u0010\u0000)
                   if (decodedBody && decodedBody.length > 0) {
                     if (isHtml) {
                       // For HTML: Find first "<" (start of HTML tag)
                       const htmlStart = decodedBody.indexOf('<');
-                      if (htmlStart > 0 && htmlStart < 20) {
-                        // Remove up to 20 bytes of binary prefix
+                      if (htmlStart > 0 && htmlStart < MAX_BINARY_PREFIX_BYTES) {
                         decodedBody = decodedBody.substring(htmlStart);
                       }
                     } else if (isText) {
-                      // For plain text: Remove leading non-printable ASCII (< 0x20 except \n, \r, \t)
+                      // For plain text: Remove leading non-printable characters
                       let textStart = 0;
-                      while (textStart < decodedBody.length && textStart < 20) {
-                        const code = decodedBody.charCodeAt(textStart);
-                        // Stop at first printable character (>= 0x20) or common whitespace
-                        if (code >= 0x20 || code === 0x0A || code === 0x0D || code === 0x09) {
+                      while (textStart < decodedBody.length && textStart < MAX_BINARY_PREFIX_BYTES) {
+                        if (isPrintableOrWhitespace(decodedBody.charCodeAt(textStart))) {
                           break;
                         }
                         textStart++;
@@ -1779,9 +1786,8 @@ async function uploadEmailAsHtml(messageData, selectedAttachments, direction, co
                     // Remove binary prefix for fallback (plain text assumed)
                     if (fallbackBody && fallbackBody.length > 0) {
                       let textStart = 0;
-                      while (textStart < fallbackBody.length && textStart < 20) {
-                        const code = fallbackBody.charCodeAt(textStart);
-                        if (code >= 0x20 || code === 0x0A || code === 0x0D || code === 0x09) {
+                      while (textStart < fallbackBody.length && textStart < MAX_BINARY_PREFIX_BYTES) {
+                        if (isPrintableOrWhitespace(fallbackBody.charCodeAt(textStart))) {
                           break;
                         }
                         textStart++;
