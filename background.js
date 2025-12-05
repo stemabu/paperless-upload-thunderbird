@@ -1616,6 +1616,7 @@ async function uploadEmailAsHtml(messageData, selectedAttachments, direction, co
               console.log('🔍 [uploadEmailAsHtml] Found boundary:', boundary);
               
               // Step 3: Split by boundary
+              // MIME boundary markers: --boundary for part separators, --boundary-- for final
               const parts = mimeContent.split('--' + boundary);
               console.log('🔍 [uploadEmailAsHtml] Found MIME parts:', parts.length);
               
@@ -1638,9 +1639,13 @@ async function uploadEmailAsHtml(messageData, selectedAttachments, direction, co
               for (let i = 1; i < parts.length; i++) {
                 const part = parts[i];
                 
-                // Check if this is the epilogue (starts with --)
-                if (part.trimStart().startsWith('--')) {
-                  console.log('🔍 [uploadEmailAsHtml] Part', i, 'is epilogue, skipping');
+                // Check if this is the closing boundary/epilogue
+                // After splitting by --boundary, the closing --boundary-- results in a part
+                // that starts with -- (the remaining from --boundary--)
+                // This marks the end of MIME parts - anything after is epilogue
+                const trimmedPart = part.trimStart();
+                if (trimmedPart.startsWith('--') || trimmedPart.length === 0) {
+                  console.log('🔍 [uploadEmailAsHtml] Part', i, 'is closing boundary/epilogue, skipping');
                   continue;
                 }
                 
@@ -1655,6 +1660,7 @@ async function uploadEmailAsHtml(messageData, selectedAttachments, direction, co
                 console.log('🔍 [uploadEmailAsHtml] Part', i, 'body length:', body.length);
                 
                 // Check Content-Type (case-insensitive, handle parameters like charset)
+                // Regex handles headers with additional params and multi-line folding
                 if (/content-type:\s*text\/html/i.test(headers)) {
                   htmlPart = body;
                   console.log('🔍 [uploadEmailAsHtml] Found HTML part, length:', body.length);
