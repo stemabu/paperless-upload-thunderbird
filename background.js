@@ -10,18 +10,65 @@ const PAPERLESS_TAG_PREFERRED_KEY = "paperless"; // desired key when creating ne
 const PAPERLESS_TAG_LABEL = "Paperless";
 const PAPERLESS_TAG_COLOR = "#007bff";
 
+// Maximum bytes to check/remove for binary prefix in S/MIME decoded content
+// S/MIME containers may have 4-byte headers (e.g., \u0004\u0010\u0000) before actual content
+const MAX_BINARY_PREFIX_BYTES = 20;
+
 let currentPdfAttachments = [];
 let currentMessage = null;
 
 // Reusable TextDecoder for efficient decoding of ArrayBuffer/TypedArray
 const UTF8_DECODER = new TextDecoder('utf-8');
 
+/**
+ * Check if a character code represents a printable character or common whitespace.
+ * @param {number} charCode - The character code to check
+ * @returns {boolean} True if the character is printable (>= 0x20) or whitespace (tab, newline, carriage return)
+ */
+function isPrintableOrWhitespace(charCode) {
+  return charCode >= 0x20 || charCode === 0x09 || charCode === 0x0A || charCode === 0x0D;
+}
+
+/**
+ * Remove binary prefix from decoded content (e.g., S/MIME headers before actual content).
+ * For HTML content: removes bytes before the first '<' character.
+ * For plain text: removes leading non-printable characters.
+ * @param {string} content - The decoded content that may have a binary prefix
+ * @param {boolean} isHtml - True if content is HTML, false for plain text
+ * @returns {string} Content with binary prefix removed
+ */
+function removeBinaryPrefix(content, isHtml) {
+  if (!content || content.length === 0) {
+    return content;
+  }
+  
+  if (isHtml) {
+    // For HTML: Find first "<" (start of HTML tag)
+    const htmlStart = content.indexOf('<');
+    if (htmlStart > 0 && htmlStart < MAX_BINARY_PREFIX_BYTES) {
+      return content.substring(htmlStart);
+    }
+  } else {
+    // For plain text: Remove leading non-printable characters
+    let textStart = 0;
+    while (textStart < content.length && textStart < MAX_BINARY_PREFIX_BYTES) {
+      if (isPrintableOrWhitespace(content.charCodeAt(textStart))) {
+        break;
+      }
+      textStart++;
+    }
+    if (textStart > 0) {
+      return content.substring(textStart);
+    }
+  }
+  
+  return content;
+}
+
 // Decode Quoted-Printable encoded text
 // Converts =XX (hex) sequences to characters and removes soft line breaks
 function decodeQuotedPrintable(text) {
   if (!text) return text;
-  
-  console.log('🔍 [decodeQuotedPrintable] Input length:', text.length);
   
   // Step 1: Parse the text and extract bytes
   const bytes = [];
@@ -42,7 +89,6 @@ function decodeQuotedPrintable(text) {
       i += 3;
     } else if (text[i] === '=') {
       // Invalid escape sequence - keep as-is
-      console.warn('⚠️ [decodeQuotedPrintable] Invalid escape at position', i, ':', text.substring(i, i + 5));
       bytes.push(text.charCodeAt(i));
       i++;
     } else {
@@ -52,15 +98,10 @@ function decodeQuotedPrintable(text) {
     }
   }
   
-  console.log('🔍 [decodeQuotedPrintable] Extracted bytes:', bytes.length);
-  
   // Step 2: Decode the byte array as UTF-8 using the global decoder
   try {
     const uint8Array = new Uint8Array(bytes);
     const decoded = UTF8_DECODER.decode(uint8Array);
-    
-    console.log('✅ [decodeQuotedPrintable] Decoded length:', decoded.length);
-    console.log('🔍 [decodeQuotedPrintable] First 200 chars:', decoded.substring(0, 200));
     
     return decoded;
   } catch (e) {
@@ -1601,11 +1642,9 @@ async function uploadEmailAsHtml(messageData, selectedAttachments, direction, co
 
     // If body is empty but might be in attachment, try to extract it
     if ((!emailBodyData.body || emailBodyData.body.length === 0) && emailBodyData.isAttachment) {
-      console.log('🔍 [uploadEmailAsHtml] Body is empty, checking attachments...');
       
       // Get attachments
       const attachments = await browser.messages.listAttachments(messageData.id);
-      console.log('🔍 [uploadEmailAsHtml] Found attachments:', attachments.length);
       
       // Look for S/MIME or embedded message content
       const bodyAttachment = attachments.find(att => 
@@ -1615,12 +1654,6 @@ async function uploadEmailAsHtml(messageData, selectedAttachments, direction, co
       );
       
       if (bodyAttachment) {
-        console.log('🔍 [uploadEmailAsHtml] Found potential body in attachment:', {
-          name: bodyAttachment.name,
-          contentType: bodyAttachment.contentType,
-          size: bodyAttachment.size
-        });
-        
         try {
           // Get the attachment content
           const attachmentFile = await browser.messages.getAttachmentFile(
@@ -1636,17 +1669,7 @@ async function uploadEmailAsHtml(messageData, selectedAttachments, direction, co
             reader.readAsText(attachmentFile);
           });
           
-          console.log('🔍 [uploadEmailAsHtml] Attachment content read:', {
-            length: fileContent.length,
-            preview: fileContent.substring(0, 200)
-          });
-          
-          console.log('🔍 [uploadEmailAsHtml] Attachment raw content (first 500 chars):', 
-            fileContent.substring(0, 500).replace(/\n/g, '↵')
-          );
-          
           // Parse the S/MIME attachment as MIME message
-          console.log('🔍 [uploadEmailAsHtml] Parsing MIME content...');
           
           // Step 1: Remove binary S/MIME header (everything before "Content-Type:")
           const contentTypeIndex = fileContent.indexOf('Content-Type:');
@@ -1657,10 +1680,6 @@ async function uploadEmailAsHtml(messageData, selectedAttachments, direction, co
           } else {
             // Start from Content-Type header
             const mimeContent = fileContent.substring(contentTypeIndex);
-            
-            console.log('🔍 [uploadEmailAsHtml] MIME content (first 500 chars):', 
-              mimeContent.substring(0, 500).replace(/\n/g, '↵')
-            );
             
             // Step 2: Extract boundary from Content-Type header
             // Handle quoted boundaries (double or single quotes) and unquoted boundaries per RFC 2046
@@ -1719,7 +1738,6 @@ async function uploadEmailAsHtml(messageData, selectedAttachments, direction, co
                 // This marks the end of MIME parts - anything after is epilogue
                 const trimmedPart = part.trimStart();
                 if (trimmedPart.startsWith('--') || trimmedPart.length === 0) {
-                  console.log('🔍 [uploadEmailAsHtml] Part', i, 'is closing boundary/epilogue, skipping');
                   continue;
                 }
                 
@@ -1729,9 +1747,6 @@ async function uploadEmailAsHtml(messageData, selectedAttachments, direction, co
                 
                 const headers = part.substring(0, blankLine.index);
                 const body = part.substring(blankLine.index + blankLine.length).trim();
-                
-                console.log('🔍 [uploadEmailAsHtml] Part', i, 'headers:', headers.substring(0, 200));
-                console.log('🔍 [uploadEmailAsHtml] Part', i, 'body length:', body.length);
                 
                 // Check Content-Type (case-insensitive, handle parameters like charset)
                 // Regex handles headers with additional params and multi-line folding
@@ -1743,16 +1758,13 @@ async function uploadEmailAsHtml(messageData, selectedAttachments, direction, co
                   let decodedBody = body;
                   
                   if (/content-transfer-encoding:\s*quoted-printable/i.test(headers)) {
-                    console.log('🔍 [uploadEmailAsHtml] Part', i, 'is quoted-printable encoded, decoding...');
                     decodedBody = decodeQuotedPrintable(body);
-                    console.log('🔍 [uploadEmailAsHtml] Decoded from', body.length, 'to', decodedBody.length, 'chars');
                   } else if (/content-transfer-encoding:\s*base64/i.test(headers)) {
-                    console.log('🔍 [uploadEmailAsHtml] Part', i, 'is base64 encoded, decoding...');
                     decodedBody = decodeBase64(body);
-                    console.log('🔍 [uploadEmailAsHtml] Decoded from', body.length, 'to', decodedBody.length, 'chars');
-                  } else if (/content-transfer-encoding:\s*(8bit|7bit)/i.test(headers)) {
-                    console.log('🔍 [uploadEmailAsHtml] Part', i, 'is 7bit/8bit (no decoding needed)');
                   }
+
+                  // Remove binary prefix that may exist before actual content
+                  decodedBody = removeBinaryPrefix(decodedBody, isHtml);
                   
                   if (isHtml) {
                     htmlPart = decodedBody;
@@ -1770,7 +1782,6 @@ async function uploadEmailAsHtml(messageData, selectedAttachments, direction, co
                 emailBodyData.body = htmlPart;
                 emailBodyData.isHtml = true;
               } else if (textPart) {
-                console.log('✅ [uploadEmailAsHtml] Using plain text part from MIME message');
                 emailBodyData.body = textPart;
                 emailBodyData.isHtml = false;
               } else {
@@ -1785,12 +1796,13 @@ async function uploadEmailAsHtml(messageData, selectedAttachments, direction, co
                     
                     // Try to decode if quoted-printable or base64
                     if (/content-transfer-encoding:\s*quoted-printable/i.test(fallbackHeaders)) {
-                      console.log('🔍 [uploadEmailAsHtml] Fallback body is quoted-printable, decoding...');
                       fallbackBody = decodeQuotedPrintable(fallbackBody);
                     } else if (/content-transfer-encoding:\s*base64/i.test(fallbackHeaders)) {
-                      console.log('🔍 [uploadEmailAsHtml] Fallback body is base64, decoding...');
                       fallbackBody = decodeBase64(fallbackBody);
                     }
+                    
+                    // Remove binary prefix for fallback (plain text assumed)
+                    fallbackBody = removeBinaryPrefix(fallbackBody, false);
                     
                     emailBodyData.body = fallbackBody;
                   } else {
@@ -1815,8 +1827,6 @@ async function uploadEmailAsHtml(messageData, selectedAttachments, direction, co
           console.error('❌ [uploadEmailAsHtml] Failed to read attachment:', attachmentError);
           // Continue with empty body
         }
-      } else {
-        console.log('⚠️ [uploadEmailAsHtml] No suitable attachment found for body extraction');
       }
     }
 
