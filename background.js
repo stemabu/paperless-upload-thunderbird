@@ -337,7 +337,14 @@ function extractEmailBody(fullMessage) {
     parts: part.parts ? part.parts.map(sanitizeForLog) : undefined
   });
   console.warn('⚠️ [extractEmailBody] Message structure (metadata only):', JSON.stringify(sanitizeForLog(fullMessage), null, 2));
-  return { body: '', isHtml: false };
+
+  // Check if body might be in an attachment (e.g., S/MIME format)
+  console.log('🔍 [extractEmailBody] Checking if body might be in attachment format...');
+  return { 
+    body: '', 
+    isHtml: false,
+    isAttachment: true  // Signal that body might be in attachment
+  };
 }
 
 // Get or create custom field by name
@@ -1510,6 +1517,75 @@ async function uploadEmailAsHtml(messageData, selectedAttachments, direction, co
     // Get email body from Thunderbird
     const fullMessage = await browser.messages.getFull(messageData.id);
     const emailBodyData = extractEmailBody(fullMessage);
+
+    console.log('📧 Email body extracted:', {
+      hasBody: !!emailBodyData.body,
+      bodyLength: emailBodyData.body?.length || 0,
+      isHtml: emailBodyData.isHtml,
+      isAttachment: emailBodyData.isAttachment || false
+    });
+
+    // If body is empty but might be in attachment, try to extract it
+    if ((!emailBodyData.body || emailBodyData.body.length === 0) && emailBodyData.isAttachment) {
+      console.log('🔍 [uploadEmailAsHtml] Body is empty, checking attachments...');
+      
+      // Get attachments
+      const attachments = await browser.messages.listAttachments(messageData.id);
+      console.log('🔍 [uploadEmailAsHtml] Found attachments:', attachments.length);
+      
+      // Look for S/MIME or embedded message content
+      const bodyAttachment = attachments.find(att => 
+        att.contentType === 'application/x-pkcs7-mime' ||
+        att.contentType === 'application/pkcs7-mime' ||
+        att.name === 'smime.p7m'
+      );
+      
+      if (bodyAttachment) {
+        console.log('🔍 [uploadEmailAsHtml] Found potential body in attachment:', {
+          name: bodyAttachment.name,
+          contentType: bodyAttachment.contentType,
+          size: bodyAttachment.size
+        });
+        
+        try {
+          // Get the attachment content
+          const attachmentFile = await browser.messages.getAttachmentFile(
+            messageData.id,
+            bodyAttachment.partName
+          );
+          
+          // Read the file content
+          const reader = new FileReader();
+          const fileContent = await new Promise((resolve, reject) => {
+            reader.onload = () => resolve(reader.result);
+            reader.onerror = reject;
+            reader.readAsText(attachmentFile);
+          });
+          
+          console.log('🔍 [uploadEmailAsHtml] Attachment content read:', {
+            length: fileContent.length,
+            preview: fileContent.substring(0, 200)
+          });
+          
+          console.log('🔍 [uploadEmailAsHtml] Attachment raw content (first 500 chars):', 
+            fileContent.substring(0, 500).replace(/\n/g, '↵')
+          );
+          
+          // Try to parse as email (it might be an embedded .eml)
+          // For now, treat as plain text
+          emailBodyData.body = fileContent;
+          emailBodyData.isHtml = false;
+          
+          console.log('✅ [uploadEmailAsHtml] Using attachment content as email body');
+          
+        } catch (attachmentError) {
+          console.error('❌ [uploadEmailAsHtml] Failed to read attachment:', attachmentError);
+          // Continue with empty body
+        }
+      } else {
+        console.log('⚠️ [uploadEmailAsHtml] No suitable attachment found for body extraction');
+      }
+    }
 
     // Convert email to PDF via Gotenberg
     let pdfBlob;
