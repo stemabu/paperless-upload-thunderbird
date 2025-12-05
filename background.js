@@ -282,13 +282,16 @@ function extractEmailBody(fullMessage) {
       
       console.log(`🔍 [extractEmailBody] ${indent}  → Normalized contentType: "${contentType}"`);
       
-      if (contentType === 'text/html') {
+      // Check for HTML content
+      if (contentType === 'text/html' || contentType.startsWith('text/html')) {
         console.log(`🔍 [extractEmailBody] ${indent}  → Found HTML body (${part.body.length} chars)`);
         if (!htmlBody || part.body.length > htmlBody.length) {
           // Prefer longer HTML body (sometimes there are multiple versions)
           htmlBody = part.body;
         }
-      } else if (contentType === 'text/plain' || !contentType) {
+      }
+      // Check for plain text content
+      else if (contentType === 'text/plain' || contentType.startsWith('text/plain') || !contentType) {
         console.log(`🔍 [extractEmailBody] ${indent}  → Found plain text body (${part.body.length} chars)`);
         if (!plainBody || part.body.length > plainBody.length) {
           // Prefer longer plain text body
