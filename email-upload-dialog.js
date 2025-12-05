@@ -44,7 +44,6 @@ async function saveRecentlyUsedTags(tagIds) {
     
     // Save to storage
     await browser.storage.local.set({ [RECENTLY_USED_TAGS_KEY]: limitedTags });
-    console.log('📌 Saved recently used tags:', limitedTags);
   } catch (error) {
     console.error('Error saving recently used tags:', error);
     // Graceful degradation - just log the error
@@ -76,14 +75,9 @@ async function findCorrespondentMatch() {
     const fromEmail = extractEmailAddress(currentMessage.author);
     const toEmails = (currentMessage.recipients || []).map(r => extractEmailAddress(r));
     
-    console.log('📧 Checking for correspondent match...');
-    console.log('📧 From:', fromEmail);
-    console.log('📧 To:', toEmails);
-    
     // Check FROM field first - if match found, it's incoming mail
     const fromMatch = mappings.find(m => m.email === fromEmail);
     if (fromMatch) {
-      console.log('📧 Match found in FROM field:', fromMatch);
       return {
         correspondentId: fromMatch.correspondentId,
         correspondentName: fromMatch.correspondentName,
@@ -95,7 +89,6 @@ async function findCorrespondentMatch() {
     for (const toEmail of toEmails) {
       const toMatch = mappings.find(m => m.email === toEmail);
       if (toMatch) {
-        console.log('📧 Match found in TO field:', toMatch);
         return {
           correspondentId: toMatch.correspondentId,
           correspondentName: toMatch.correspondentName,
@@ -104,7 +97,6 @@ async function findCorrespondentMatch() {
       }
     }
     
-    console.log('📧 No correspondent match found');
     return null;
   } catch (error) {
     console.error('Error finding correspondent match:', error);
@@ -198,13 +190,9 @@ document.addEventListener('DOMContentLoaded', async function () {
 });
 
 async function loadEmailData() {
-  console.log('📧 Loading email data...');
-  
   try {
     const result = await browser.storage.local.get('emailUploadData');
     const uploadData = result.emailUploadData;
-    
-    console.log('📧 Upload data retrieved:', uploadData ? 'yes' : 'no');
 
     if (!uploadData) {
       console.error('📧 No email upload data found in storage');
@@ -226,38 +214,11 @@ async function loadEmailData() {
       isHtmlBody = /<html[\s>]|<body[\s>]|<div[\s>]|<p[\s>]|<table[\s>]/i.test(emailBody);
     }
 
-    console.log('📧 - Email body length:', emailBody.length);
-    console.log('📧 - Is HTML body:', isHtmlBody);
-
-    // Debug: Show first 200 characters of email body for inspection
-    if (emailBody) {
-      console.log('📧 - Email body preview (first 200 chars):', emailBody.substring(0, 200));
-      console.log('📧 - Email body char codes (first 50 chars):', 
-        Array.from(emailBody.substring(0, 50)).map(c => c.charCodeAt(0)).join(','));
-    }
-    
     // Decode HTML entities if present (for text/plain emails with HTML entities)
     // Thunderbird decodes Quoted-Printable automatically, but NOT HTML entities
     if (emailBody && hasHtmlEntities(emailBody)) {
-      console.log('📧 Detected HTML entities in email body, decoding...');
-      const beforeLength = emailBody.length;
       emailBody = decodeHtmlEntities(emailBody);
-      console.log('📧 After HTML entity decoding, length:', emailBody.length);
-      console.log('📧 Decoded', (beforeLength - emailBody.length), 'characters');
-      console.log('📧 Decoded preview (first 200 chars):', emailBody.substring(0, 200));
     }
-
-    console.log('📧 Email loaded:');
-    console.log('📧 - From:', currentMessage.author);
-    console.log('📧 - Subject:', currentMessage.subject);
-    console.log('📧 - Date:', currentMessage.date);
-    console.log('📧 - Message ID:', currentMessage.id);
-    console.log('📧 - Attachments:', currentAttachments.length);
-    currentAttachments.forEach((att, i) => {
-      console.log(`📧   [${i}] ${att.name} (${att.contentType}, ${att.size} bytes, partName: ${att.partName})`);
-    });
-    console.log('📧 - Email body length:', emailBody.length);
-    console.log('📧 - Is HTML body:', isHtmlBody);
 
     // Populate email info
     document.getElementById('emailFrom').textContent = currentMessage.author;
@@ -310,22 +271,16 @@ async function loadEmailData() {
 
     // Populate attachments if any
     if (currentAttachments.length > 0) {
-      console.log('📧 Showing attachment section');
       document.getElementById('attachmentSection').style.display = 'block';
       await populateAttachmentList();
-    } else {
-      console.log('📧 No attachments to display');
     }
 
     // Show main content
     document.getElementById('loadingSection').style.display = 'none';
     document.getElementById('mainContent').style.display = 'block';
-    
-    console.log('📧 Email data loaded successfully');
 
   } catch (error) {
     console.error('📧 Error loading email data:', error);
-    console.error('📧 Error stack:', error.stack);
     showError('Fehler beim Laden der E-Mail-Daten: ' + error.message);
   }
 }
@@ -334,16 +289,11 @@ async function loadEmailData() {
 async function applyCorrespondentMatch() {
   const match = await findCorrespondentMatch();
   if (match) {
-    console.log('📧 Applying correspondent suggestion:', match);
-    
     const correspondentSelect = document.getElementById('correspondent');
     correspondentSelect.value = match.correspondentId;
     
     const directionSelect = document.getElementById('direction');
     directionSelect.value = match.direction;
-    
-    console.log('📧 Pre-selected correspondent:', match.correspondentName);
-    console.log('📧 Pre-selected direction:', match.direction);
   }
 }
 
@@ -556,9 +506,6 @@ function getFileTypeIndicator(filename) {
 
 // Generate PDF from email (async to support HTML rendering)
 async function generateEmailPdf() {
-  console.log('📄 Starting PDF generation...');
-  console.log('📄 Is HTML body:', isHtmlBody);
-  
   // jsPDF is loaded from jspdf.umd.min.js as window.jspdf
   const { jsPDF } = window.jspdf;
   const doc = new jsPDF({
@@ -566,8 +513,6 @@ async function generateEmailPdf() {
     unit: 'mm',
     format: 'a4'
   });
-
-  console.log('📄 jsPDF initialized');
 
   const pageWidth = doc.internal.pageSize.getWidth();
   const pageHeight = doc.internal.pageSize.getHeight();
@@ -630,7 +575,6 @@ async function generateEmailPdf() {
         const tagText = thunderbirdTagLabels.join(', ');
         doc.setFontSize(10);
         thunderbirdTagLines = doc.splitTextToSize(tagText, contentWidth - labelWidth - headerPadding);
-        console.log('📄 Thunderbird tags for PDF:', thunderbirdTagLabels.join(', '));
       }
     } catch (error) {
       console.error('Error loading Thunderbird tags for PDF:', error);
@@ -744,10 +688,8 @@ async function generateEmailPdf() {
 
   // Email body rendering
   if (isHtmlBody && emailBody.trim()) {
-    console.log('📄 Rendering HTML body with html2canvas...');
     await renderHtmlBodyToPdf(doc, emailBody, margin, yPosition, contentWidth, pageHeight);
   } else {
-    console.log('📄 Rendering plain text body...');
     renderPlainTextBody(doc, emailBody, margin, yPosition, contentWidth, pageHeight);
   }
 
@@ -759,11 +701,7 @@ async function generateEmailPdf() {
     .substring(0, 50);
   const filename = `${dateStr}_${safeSubject}.pdf`;
 
-  console.log('📄 PDF generated successfully');
-  console.log('📄 Filename:', filename);
-  
   const pdfBlob = doc.output('blob');
-  console.log('📄 PDF blob size:', pdfBlob.size);
 
   return {
     blob: pdfBlob,
@@ -773,10 +711,6 @@ async function generateEmailPdf() {
 
 // Render HTML body to PDF using html2canvas with improved charset handling
 async function renderHtmlBodyToPdf(doc, htmlContent, margin, startY, contentWidth, pageHeight) {
-  console.log('📄 Rendering HTML body with html2canvas...');
-  console.log('📄 HTML content length:', htmlContent.length);
-  console.log('📄 HTML preview (first 200 chars):', htmlContent.substring(0, 200));
-  
   // Conversion factor: 1 mm = ~3.78 pixels (at 96 DPI)
   const MM_TO_PIXELS = 3.78;
   
@@ -801,7 +735,6 @@ async function renderHtmlBodyToPdf(doc, htmlContent, margin, startY, contentWidt
   // Set innerHTML with proper charset handling
   try {
     container.innerHTML = sanitizedHtml;
-    console.log('📄 HTML parsed successfully');
   } catch (error) {
     console.error('📄 Error parsing HTML:', error);
     // Fallback: use DOMParser to safely extract text content
@@ -809,7 +742,6 @@ async function renderHtmlBodyToPdf(doc, htmlContent, margin, startY, contentWidt
     const parser = new DOMParser();
     const parsedDoc = parser.parseFromString(htmlContent, 'text/html');
     container.textContent = parsedDoc.body ? parsedDoc.body.textContent : '';
-    console.log('📄 Fell back to plain text extraction');
   }
   
   // Add to document for rendering
@@ -832,8 +764,6 @@ async function renderHtmlBodyToPdf(doc, htmlContent, margin, startY, contentWidt
         clonedDoc.head.insertBefore(meta, clonedDoc.head.firstChild);
       }
     });
-    
-    console.log('📄 HTML rendered to canvas:', canvas.width, 'x', canvas.height);
     
     // Convert canvas to image and add to PDF
     const imgData = canvas.toDataURL('image/jpeg', 0.95);
@@ -882,12 +812,9 @@ async function renderHtmlBodyToPdf(doc, htmlContent, margin, startY, contentWidt
         }
       }
     }
-    
-    console.log('📄 HTML body added to PDF');
   } catch (error) {
     console.error('📄 Error rendering HTML to PDF:', error);
     // Fallback to plain text rendering
-    console.log('📄 Falling back to plain text rendering');
     const plainText = container.textContent || container.innerText || '';
     renderPlainTextBody(doc, plainText, margin, startY, contentWidth, pageHeight);
   } finally {
@@ -923,25 +850,19 @@ function hasDangerousUrlScheme(url) {
 // Sanitize and simplify HTML for reliable PDF rendering
 // Converts complex HTML structures to simple, well-supported elements
 function sanitizeHtmlForPdf(html) {
-  console.log('📄 Sanitizing HTML for PDF...');
-  
   // Create a temporary element to parse HTML
   const tempDiv = document.createElement('div');
   tempDiv.innerHTML = html;
-  
-  console.log('📄 Original HTML length:', html.length);
   
   // 1. Remove dangerous and non-rendering elements
   const elementsToRemove = tempDiv.querySelectorAll(
     'script, style, link, meta, head, iframe, frame, frameset, object, embed, applet, ' +
     'form, input, button, select, textarea, fieldset, legend'
   );
-  console.log('📄 Removing', elementsToRemove.length, 'dangerous/non-rendering elements');
   elementsToRemove.forEach(el => el.remove());
   
   // 2. Expand <details> elements (convert to visible div)
   const detailsElements = tempDiv.querySelectorAll('details');
-  console.log('📄 Expanding', detailsElements.length, 'details elements');
   detailsElements.forEach(details => {
     // Remove the 'open' behavior, just show content
     const div = document.createElement('div');
@@ -952,7 +873,6 @@ function sanitizeHtmlForPdf(html) {
   
   // 3. Simplify <summary> to bold text
   const summaryElements = tempDiv.querySelectorAll('summary');
-  console.log('📄 Simplifying', summaryElements.length, 'summary elements');
   summaryElements.forEach(summary => {
     const strong = document.createElement('strong');
     strong.textContent = summary.textContent;
@@ -978,7 +898,6 @@ function sanitizeHtmlForPdf(html) {
   
   Object.keys(semanticToSimple).forEach(oldTag => {
     const elements = tempDiv.querySelectorAll(oldTag);
-    console.log(`📄 Converting ${elements.length} <${oldTag}> to <${semanticToSimple[oldTag]}>`);
     elements.forEach(el => {
       const newEl = document.createElement(semanticToSimple[oldTag]);
       newEl.innerHTML = el.innerHTML;
@@ -991,7 +910,6 @@ function sanitizeHtmlForPdf(html) {
   
   // 5. Remove all event handlers and dangerous attributes
   const allElements = tempDiv.querySelectorAll('*');
-  console.log('📄 Cleaning attributes from', allElements.length, 'elements');
   allElements.forEach(el => {
     // Remove all on* event attributes
     Array.from(el.attributes).forEach(attr => {
@@ -1157,18 +1075,12 @@ function sanitizeHtmlForPdf(html) {
   tempDiv.insertBefore(styleTag, tempDiv.firstChild);
   
   const result = tempDiv.innerHTML;
-  console.log('📄 Sanitized HTML length:', result.length);
-  console.log('📄 HTML sanitization complete');
   
   return result;
 }
 
 // Render plain text body to PDF with improved character handling
 function renderPlainTextBody(doc, text, margin, startY, contentWidth, pageHeight) {
-  console.log('📄 Rendering plain text body...');
-  console.log('📄 Text length:', text.length);
-  console.log('📄 Text preview (first 100 chars):', text.substring(0, 100));
-  
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(11);
   
@@ -1177,15 +1089,10 @@ function renderPlainTextBody(doc, text, margin, startY, contentWidth, pageHeight
   // other control chars (\x0E-\x1F), and DEL (\x7F)
   let bodyText = text.replace(/[\x00-\x08\x0B-\x0C\x0E-\x1F\x7F]/g, '');
   
-  console.log('📄 After cleanup, length:', bodyText.length);
-  console.log('📄 After cleanup, preview:', bodyText.substring(0, 100));
-  
   // Split body into lines that fit the page width
   const bodyLines = doc.splitTextToSize(bodyText, contentWidth);
   const bodyLineHeight = 5;
   let yPosition = startY;
-
-  console.log('📄 Total lines to render:', bodyLines.length);
 
   for (let i = 0; i < bodyLines.length; i++) {
     const line = bodyLines[i];
@@ -1194,7 +1101,6 @@ function renderPlainTextBody(doc, text, margin, startY, contentWidth, pageHeight
     if (yPosition + bodyLineHeight > pageHeight - margin) {
       doc.addPage();
       yPosition = margin;
-      console.log('📄 Added new page at line', i);
     }
     
     // Try to render the line, catch any errors
@@ -1202,15 +1108,12 @@ function renderPlainTextBody(doc, text, margin, startY, contentWidth, pageHeight
       doc.text(line, margin, yPosition);
     } catch (error) {
       console.error('📄 Error rendering line', i, ':', error);
-      console.error('📄 Problematic line content:', line);
       // Try to render a placeholder instead with line number for debugging
       doc.text(`[Rendering error at line ${i + 1}]`, margin, yPosition);
     }
     
     yPosition += bodyLineHeight;
   }
-  
-  console.log('📄 Plain text rendering complete');
 }
 
 // Get selected attachments
@@ -1229,8 +1132,6 @@ async function handleUpload(event) {
   const originalHtml = uploadBtn.innerHTML;
   uploadBtn.disabled = true;
   uploadBtn.innerHTML = '⏳ Wird hochgeladen...';
-
-  console.log('📤 Starting upload process...');
 
   try {
     clearMessages();
@@ -1252,23 +1153,10 @@ async function handleUpload(event) {
     // Get document date from email date
     const documentDate = currentMessage.date ? new Date(currentMessage.date).toISOString().split('T')[0] : null;
 
-    console.log('📤 Upload parameters:');
-    console.log('📤 - Direction:', direction);
-    console.log('📤 - PDF Strategy:', pdfStrategy);
-    console.log('📤 - Correspondent:', correspondent);
-    console.log('📤 - Tags:', selectedTags);
-    console.log('📤 - Document Date:', documentDate);
-    console.log('📤 - Selected attachments:', selectedAttachments.length);
-    selectedAttachments.forEach((att, i) => {
-      console.log(`📤   [${i}] ${att.name} (${att.contentType}, partName: ${att.partName})`);
-    });
-
     let result;
 
     if (pdfStrategy === 'gotenberg') {
       // Upload email via direct Gotenberg API call (HTML → PDF)
-      console.log('📤 Using Gotenberg upload strategy (direct API call)...');
-      
       result = await browser.runtime.sendMessage({
         action: 'uploadEmailAsHtml',
         messageData: currentMessage,
@@ -1280,20 +1168,12 @@ async function handleUpload(event) {
       });
     } else {
       // Generate PDF locally using html2canvas + jsPDF
-      console.log('📤 Using local PDF generation strategy...');
-      console.log('📤 Generating email PDF...');
       const { blob: pdfBlob, filename: pdfFilename } = await generateEmailPdf();
-      console.log('📤 Generated PDF:', pdfFilename, 'size:', pdfBlob.size);
 
       // Convert blob to base64
-      console.log('📤 Converting PDF to base64...');
       const pdfBase64 = await blobToBase64(pdfBlob);
-      console.log('📤 PDF base64 length:', pdfBase64.length);
 
       // Send upload request to background script
-      console.log('📤 Sending message to background script...');
-      console.log('📤 Message data:', JSON.stringify(currentMessage));
-      
       result = await browser.runtime.sendMessage({
         action: 'uploadEmailWithAttachments',
         messageData: currentMessage,
@@ -1308,8 +1188,6 @@ async function handleUpload(event) {
         documentDate: documentDate
       });
     }
-
-    console.log('📤 Received result from background:', JSON.stringify(result));
 
     if (result && result.success) {
       // Save selected tags to recently used list
@@ -1347,21 +1225,12 @@ async function handleUpload(event) {
       }
       
       console.error('📤 Upload failed:', errorMsg);
-      console.error('📤 Full result:', result);
-      
-      // Log additional error details if available
-      if (result && result.errorDetails) {
-        console.error('📤 Error details:', result.errorDetails);
-      }
       
       showError('Fehler beim Upload: ' + errorMsg);
     }
 
   } catch (error) {
     console.error('📤 Upload exception:', error);
-    console.error('📤 Error name:', error.name);
-    console.error('📤 Error message:', error.message);
-    console.error('📤 Error stack:', error.stack);
     
     showError('Fehler beim Upload: ' + (error.message || 'Unbekannter Fehler'));
   } finally {

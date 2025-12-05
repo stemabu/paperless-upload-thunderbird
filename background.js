@@ -381,30 +381,16 @@ function extractEmailBody(fullMessage) {
   
   // Recursive function to find body parts
   function findBody(part, depth = 0) {
-    const indent = '  '.repeat(depth);
-    console.log(`🔍 [extractEmailBody] ${indent}Part:`, {
-      depth: depth,
-      hasBody: !!part.body,
-      bodyLength: part.body?.length || 0,
-      contentType: part.contentType || '(none)',
-      hasParts: !!part.parts,
-      partsCount: part.parts?.length || 0
-    });
-    
     if (part.body) {
       // Normalize content type: lowercase and extract main type (remove charset etc.)
       const contentType = (part.contentType || '').toLowerCase().split(';')[0].trim();
       
-      console.log(`🔍 [extractEmailBody] ${indent}  → Normalized contentType: "${contentType}"`);
-      
       if (contentType === 'text/html') {
-        console.log(`🔍 [extractEmailBody] ${indent}  → Found HTML body (${part.body.length} chars)`);
         if (!htmlBody || part.body.length > htmlBody.length) {
           // Prefer longer HTML body (sometimes there are multiple versions)
           htmlBody = part.body;
         }
       } else if (contentType === 'text/plain' || !contentType) {
-        console.log(`🔍 [extractEmailBody] ${indent}  → Found plain text body (${part.body.length} chars)`);
         if (!plainBody || part.body.length > plainBody.length) {
           // Prefer longer plain text body
           plainBody = part.body;
@@ -413,7 +399,6 @@ function extractEmailBody(fullMessage) {
     }
     
     if (part.parts) {
-      console.log(`🔍 [extractEmailBody] ${indent}  → Recursing into ${part.parts.length} sub-parts`);
       for (const subPart of part.parts) {
         findBody(subPart, depth + 1);
       }
@@ -422,23 +407,13 @@ function extractEmailBody(fullMessage) {
   
   findBody(fullMessage);
   
-  console.log('🔍 [extractEmailBody] Extraction complete:', {
-    foundHtml: !!htmlBody,
-    htmlLength: htmlBody?.length || 0,
-    foundPlain: !!plainBody,
-    plainLength: plainBody?.length || 0,
-    willReturnHtml: !!htmlBody
-  });
-  
   // Return HTML if available (preferred for formatting), otherwise plain text
   // Also return isHtml flag to indicate content type
   if (htmlBody) {
-    console.log('🔍 [extractEmailBody] Returning HTML body');
     return { body: htmlBody, isHtml: true };
   }
   
   if (plainBody) {
-    console.log('🔍 [extractEmailBody] Returning plain text body');
     return { body: plainBody, isHtml: false };
   }
   
@@ -454,7 +429,6 @@ function extractEmailBody(fullMessage) {
   console.warn('⚠️ [extractEmailBody] Message structure (metadata only):', JSON.stringify(sanitizeForLog(fullMessage), null, 2));
 
   // Check if body might be in an attachment (e.g., S/MIME format)
-  console.log('🔍 [extractEmailBody] Checking if body might be in attachment format...');
   return { 
     body: '', 
     isHtml: false,
@@ -1142,12 +1116,6 @@ function logHtmlPreview(html, maxLength = 200) {
 function sanitizeHtmlForGotenberg(html) {
   if (!html) return '';
   
-  console.log('🔍 [sanitizeHtmlForGotenberg] Starting sanitization');
-  console.log('🔍 [sanitizeHtmlForGotenberg] Input HTML:', {
-    length: html?.length || 0,
-    preview: logHtmlPreview(html, 200)
-  });
-  
   let sanitized = html;
   let previousLength;
   let passCount = 0;
@@ -1157,7 +1125,6 @@ function sanitizeHtmlForGotenberg(html) {
   do {
     passCount++;
     previousLength = sanitized.length;
-    console.log(`🔍 [sanitizeHtmlForGotenberg] Pass ${passCount}, length: ${sanitized.length}`);
     
     // 1. Remove script tags and their content (handles various variations)
     // Use [\s\S] instead of . to match across newlines
@@ -1206,14 +1173,6 @@ function sanitizeHtmlForGotenberg(html) {
     
   } while (sanitized.length !== previousLength);
   
-  console.log(`🔍 [sanitizeHtmlForGotenberg] Total passes: ${passCount}`);
-  console.log('🔍 [sanitizeHtmlForGotenberg] Sanitization complete:', {
-    originalLength: html?.length || 0,
-    sanitizedLength: sanitized.length,
-    removed: (html?.length || 0) - sanitized.length,
-    preview: logHtmlPreview(sanitized, 200)
-  });
-  
   return sanitized;
 }
 
@@ -1246,14 +1205,6 @@ function createEmailHtml(messageData, emailBodyData, selectedAttachments, thunde
   
   const toRecipients = (messageData.recipients || []).join(', ');
   
-  console.log('🔍 [createEmailHtml] Creating email HTML template');
-  console.log('🔍 [createEmailHtml] Email body data:', {
-    hasBody: !!emailBodyData.body,
-    bodyLength: emailBodyData.body?.length || 0,
-    isHtml: emailBodyData.isHtml,
-    bodyPreview: logHtmlPreview(emailBodyData.body, 200)
-  });
-  
   // Get CC recipients if any
   const ccRecipients = (messageData.ccList || []).join(', ');
   
@@ -1267,39 +1218,22 @@ function createEmailHtml(messageData, emailBodyData, selectedAttachments, thunde
   // Match complete HTML tags to avoid false positives (e.g., "body text" should not match)
   const containsHtmlTags = /<(html|body|div|p|table|span|head|meta|style)(\s[^>]*)?>/i.test(bodyText);
 
-  console.log('🔍 [createEmailHtml] HTML detection:', {
-    isHtmlFlag: emailBodyData.isHtml,
-    containsHtmlTags: containsHtmlTags,
-    willUseHtmlRendering: emailBodyData.isHtml || containsHtmlTags
-  });
-
   if ((emailBodyData.isHtml || containsHtmlTags) && bodyText) {
     // Treat as HTML - sanitize and render
-    console.log('🔍 [createEmailHtml] Treating body as HTML');
     contentHtml = sanitizeHtmlForGotenberg(bodyText);
   } else {
     // True plain text - escape and preserve whitespace
-    console.log('🔍 [createEmailHtml] Treating body as plain text');
     contentHtml = `<pre style="white-space: pre-wrap; word-wrap: break-word; font-family: inherit; margin: 0;">${escapeHtml(bodyText)}</pre>`;
   }
-  
-  console.log('🔍 [createEmailHtml] Prepared content HTML:', {
-    contentLength: contentHtml?.length || 0,
-    contentPreview: logHtmlPreview(contentHtml, 200),
-    wasHtmlProcessed: emailBodyData.isHtml || containsHtmlTags
-  });
   
   // Warn if content seems empty
   if (!contentHtml || contentHtml.trim().length === 0) {
     console.warn('⚠️ [createEmailHtml] WARNING: Content HTML is empty or whitespace only!');
-    console.warn('⚠️ [createEmailHtml] Original body length:', bodyText.length);
-    console.warn('⚠️ [createEmailHtml] Original body preview:', bodyText.substring(0, 500));
   }
   
   // Check if HTML body became empty after sanitization (only for HTML content)
   if ((emailBodyData.isHtml || containsHtmlTags) && bodyText && (!contentHtml || contentHtml.trim().length === 0)) {
     console.warn('⚠️ [createEmailHtml] WARNING: HTML body became empty after sanitization!');
-    console.warn('⚠️ [createEmailHtml] Original body length:', bodyText.length);
   }
   
   // Build Thunderbird tags section if any
@@ -1466,12 +1400,6 @@ function createEmailHtml(messageData, emailBodyData, selectedAttachments, thunde
 </body>
 </html>`;
   
-  console.log('🔍 [createEmailHtml] Final HTML template:', {
-    totalLength: finalHtml.length,
-    hasContent: finalHtml.includes('<div class="content">'),
-    contentSectionPreview: finalHtml.match(/<div class="content">([\s\S]{0,300})/)?.[1] || '(not found)'
-  });
-  
   return finalHtml;
 }
 
@@ -1492,7 +1420,6 @@ async function convertEmailToPdfViaGotenberg(messageData, emailBodyData, selecte
             color: tagInfo?.color || '#808080' // Fallback to gray
           };
         });
-        console.log('📧 Thunderbird tags for Gotenberg:', thunderbirdTags.map(t => t.label).join(', '));
       }
     } catch (error) {
       console.error('Error loading Thunderbird tags for Gotenberg:', error);
@@ -1501,14 +1428,6 @@ async function convertEmailToPdfViaGotenberg(messageData, emailBodyData, selecte
   
   // Create HTML content with tag objects (not just labels)
   const htmlContent = createEmailHtml(messageData, emailBodyData, selectedAttachments, thunderbirdTags);
-  
-  console.log('🔍 [convertEmailToPdfViaGotenberg] HTML content created:', {
-    length: htmlContent.length,
-    hasDoctype: htmlContent.startsWith('<!doctype'),
-    hasBody: htmlContent.includes('<body>'),
-    hasContent: htmlContent.includes('<div class="content">'),
-    preview: logHtmlPreview(htmlContent, 300)
-  });
   
   // Create FormData for Gotenberg
   const formData = new FormData();
@@ -1519,11 +1438,6 @@ async function convertEmailToPdfViaGotenberg(messageData, emailBodyData, selecte
   // This endpoint is the standard Gotenberg API path for HTML to PDF conversion
   // Compatible with Gotenberg v7+ (https://gotenberg.dev/docs/routes#html-file-into-pdf-route)
   const gotenbergEndpoint = `${gotenbergUrl}/forms/chromium/convert/html`;
-  
-  console.log('🔍 [convertEmailToPdfViaGotenberg] Gotenberg request sent:', {
-    endpoint: gotenbergEndpoint,
-    htmlFileSize: htmlContent.length
-  });
   
   const response = await fetch(gotenbergEndpoint, {
     method: 'POST',
@@ -1537,11 +1451,6 @@ async function convertEmailToPdfViaGotenberg(messageData, emailBodyData, selecte
   }
   
   const pdfBlob = await response.blob();
-  
-  console.log('🔍 [convertEmailToPdfViaGotenberg] PDF generated successfully:', {
-    pdfSize: pdfBlob.size,
-    pdfType: pdfBlob.type
-  });
   
   return pdfBlob;
 }
@@ -1633,13 +1542,6 @@ async function uploadEmailAsHtml(messageData, selectedAttachments, direction, co
     const fullMessage = await browser.messages.getFull(messageData.id);
     const emailBodyData = extractEmailBody(fullMessage);
 
-    console.log('📧 Email body extracted:', {
-      hasBody: !!emailBodyData.body,
-      bodyLength: emailBodyData.body?.length || 0,
-      isHtml: emailBodyData.isHtml,
-      isAttachment: emailBodyData.isAttachment || false
-    });
-
     // If body is empty but might be in attachment, try to extract it
     if ((!emailBodyData.body || emailBodyData.body.length === 0) && emailBodyData.isAttachment) {
       
@@ -1706,12 +1608,10 @@ async function uploadEmailAsHtml(messageData, selectedAttachments, direction, co
             } else {
               // Extract boundary from whichever capture group matched
               const boundary = boundaryMatch[1] || boundaryMatch[2] || boundaryMatch[3];
-              console.log('🔍 [uploadEmailAsHtml] Found boundary:', boundary);
               
               // Step 3: Split by boundary
               // MIME boundary markers: --boundary for part separators, --boundary-- for final
               const parts = mimeContent.split('--' + boundary);
-              console.log('🔍 [uploadEmailAsHtml] Found MIME parts:', parts.length);
               
               let htmlPart = null;
               let textPart = null;
@@ -1768,17 +1668,14 @@ async function uploadEmailAsHtml(messageData, selectedAttachments, direction, co
                   
                   if (isHtml) {
                     htmlPart = decodedBody;
-                    console.log('🔍 [uploadEmailAsHtml] Found HTML part, length:', decodedBody.length);
                   } else if (isText) {
                     textPart = decodedBody;
-                    console.log('🔍 [uploadEmailAsHtml] Found plain text part, length:', decodedBody.length);
                   }
                 }
               }
               
               // Step 5: Prefer HTML over plain text
               if (htmlPart) {
-                console.log('✅ [uploadEmailAsHtml] Using HTML part from MIME message');
                 emailBodyData.body = htmlPart;
                 emailBodyData.isHtml = true;
               } else if (textPart) {
@@ -1816,12 +1713,6 @@ async function uploadEmailAsHtml(messageData, selectedAttachments, direction, co
               }
             }
           }
-          
-          console.log('✅ [uploadEmailAsHtml] Final extracted body:', {
-            length: emailBodyData.body?.length || 0,
-            isHtml: emailBodyData.isHtml,
-            preview: emailBodyData.body?.substring(0, 200) || '(empty)'
-          });
           
         } catch (attachmentError) {
           console.error('❌ [uploadEmailAsHtml] Failed to read attachment:', attachmentError);
