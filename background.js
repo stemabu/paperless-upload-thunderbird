@@ -1109,12 +1109,10 @@ function createEmailHtml(messageData, emailBodyData, selectedAttachments, thunde
     console.warn('⚠️ [createEmailHtml] Email body data:', emailBodyData);
   }
   
-  if (emailBodyData.isHtml && emailBodyData.body) {
-    const afterSanitization = sanitizeHtmlForGotenberg(emailBodyData.body);
-    if (!afterSanitization || afterSanitization.trim().length === 0) {
-      console.warn('⚠️ [createEmailHtml] WARNING: HTML body became empty after sanitization!');
-      console.warn('⚠️ [createEmailHtml] Original body length:', emailBodyData.body.length);
-    }
+  // Check if HTML body became empty after sanitization (only for HTML content)
+  if (emailBodyData.isHtml && emailBodyData.body && (!contentHtml || contentHtml.trim().length === 0)) {
+    console.warn('⚠️ [createEmailHtml] WARNING: HTML body became empty after sanitization!');
+    console.warn('⚠️ [createEmailHtml] Original body length:', emailBodyData.body.length);
   }
   
   // Build Thunderbird tags section if any
