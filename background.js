@@ -1181,7 +1181,7 @@ function createEmailHtml(messageData, emailBodyData, selectedAttachments, thunde
     blockquote { 
       margin: 0.5em 0; 
       padding-left: 12px; 
-      border-left: 3px solid #3b82f6;
+      border-left: 3px solid #475569;
       color: #475569; 
       font-style: normal;
     }
@@ -1189,7 +1189,7 @@ function createEmailHtml(messageData, emailBodyData, selectedAttachments, thunde
     .email-quote {
       margin: 0.5em 0;
       padding-left: 12px;
-      border-left: 3px solid #3b82f6;
+      border-left: 3px solid #475569;
       color: #475569;
     }
   </style>
