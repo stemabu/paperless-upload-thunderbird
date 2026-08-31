@@ -183,7 +183,7 @@ function ensureFromHeaderAtBeginning(emlContent) {
 }
 
 // Create context menus for attachments
-browser.runtime.onInstalled.addListener(async () => {
+async function createContextMenus() {
   // Remove all existing menus first to avoid conflicts
   await browser.menus.removeAll();
 
@@ -213,7 +213,14 @@ browser.runtime.onInstalled.addListener(async () => {
       "128": "icons/icon-128.png"
     }
   });
-});
+}
+
+// Create menus when the extension is installed or updated.
+browser.runtime.onInstalled.addListener(createContextMenus);
+
+// Also create menus whenever the background script starts.
+// This is important after reloading the extension during development.
+createContextMenus();
 
 // Handle context menu clicks
 browser.menus.onClicked.addListener(async (info, tab) => {
