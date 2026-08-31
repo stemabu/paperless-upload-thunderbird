@@ -134,7 +134,8 @@ async function loadCorrespondents() {
   try {
     const response = await fetch(`${settings.paperlessUrl}/api/correspondents/?page_size=1000`, {
       headers: {
-        'Authorization': `Token ${settings.paperlessToken}`
+        'Authorization': `Token ${settings.paperlessToken}`,
+        'Accept': 'application/json; version=10'
       }
     });
     
