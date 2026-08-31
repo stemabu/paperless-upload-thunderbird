@@ -2373,6 +2373,46 @@ async function waitForDocumentId(config, taskId, maxAttempts = DOCUMENT_PROCESSI
         // Older servers / API versions may still return a plain array.
         const taskList = Array.isArray(taskData) ? taskData : (taskData.results || []);
 
+        // DIAGNOSTIC LOGGING (does not affect control flow below):
+        // Helps confirm/rule out server-side owner-based task visibility
+        // filtering (see Paperless-ngx TasksViewSet.get_queryset()) as the
+        // root cause for `taskList` staying empty across all polling attempts.
+        if ((attempt === 0 || attempt === 5) && taskList.length === 0) {
+          console.warn(`📋 🔍 Diagnostic (attempt ${attempt}): /api/tasks/?task_id=${taskId} returned no matching task.`, {
+            count: taskData && typeof taskData === 'object' ? taskData.count : undefined,
+            resultsLength: taskList.length,
+            rawResponse: taskData
+          });
+        }
+
+        if (attempt === 0) {
+          // One-off diagnostic request (unfiltered) to check whether ANY
+          // tasks are visible to the current API token/user at all, and if
+          // so, which `owner` values they have. This helps confirm whether
+          // a task with a mismatched (or absent) owner is being hidden by
+          // Paperless-ngx's non-staff visibility filtering, rather than the
+          // task simply not existing yet.
+          try {
+            const diagUrl = `${config.url}/api/tasks/?page_size=5`;
+            const diagResponse = await fetch(diagUrl, {
+              headers: { 'Authorization': `Token ${config.token}`, 'Accept': PAPERLESS_API_ACCEPT_HEADER }
+            });
+            if (diagResponse.ok) {
+              const diagData = await diagResponse.json();
+              const diagList = Array.isArray(diagData) ? diagData : (diagData.results || []);
+              console.warn('📋 🔍 Diagnostic: tasks visible to current API token (unfiltered, page_size=5):', {
+                count: diagData && typeof diagData === 'object' ? diagData.count : undefined,
+                owners: diagList.map(t => ({ task_id: t.task_id, status: t.status, owner: t.owner }))
+              });
+            } else {
+              const diagText = await diagResponse.text().catch(() => '<unreadable>');
+              console.warn(`📋 🔍 Diagnostic: /api/tasks/?page_size=5 request failed with status ${diagResponse.status}:`, diagText);
+            }
+          } catch (diagError) {
+            console.warn('📋 🔍 Diagnostic: error while checking unfiltered task visibility:', diagError);
+          }
+        }
+
         if (taskList.length > 0) {
           const task = taskList[0];
           
@@ -2419,7 +2459,8 @@ async function waitForDocumentId(config, taskId, maxAttempts = DOCUMENT_PROCESSI
           // For PENDING/STARTED status, continue polling without logging
         }
       } else {
-        console.error(`📋 ❌ Task API request failed with status ${taskResponse.status}`);
+        const errorText = await taskResponse.text().catch(() => '<unreadable>');
+        console.error(`📋 ❌ Task API request failed with status ${taskResponse.status}:`, errorText);
       }
 
       // Wait before next attempt (no logging)
