@@ -338,9 +338,12 @@ async function loadCorrespondents() {
         option.textContent = correspondent.name;
         select.appendChild(option);
       });
+    } else {
+      const errorText = await response.text();
+      console.error('Error loading correspondents: HTTP', response.status, errorText);
     }
   } catch (error) {
-    console.error('Error loading correspondents:', error);
+    console.error('Error loading correspondents:', error.name, error.message, error);
   }
 }
 
@@ -394,9 +397,12 @@ async function loadTags() {
           select.appendChild(option);
         }
       });
+    } else {
+      const errorText = await response.text();
+      console.error('Error loading tags: HTTP', response.status, errorText);
     }
   } catch (error) {
-    console.error('Error loading tags:', error);
+    console.error('Error loading tags:', error.name, error.message, error);
   }
 }
 
