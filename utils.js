@@ -73,7 +73,12 @@ async function testPaperlessConnection(url, token) {
       method: 'GET',
       headers: {
         'Authorization': `Token ${token}`,
-        'Content-Type': 'application/json',
+        // Pin the API version so behavior is deterministic regardless of the
+        // server's default (Paperless-ngx v3+ changed its default to v10).
+        // Note: Content-Type is intentionally omitted since this GET request
+        // has no body; setting it would turn this into a "non-simple" CORS
+        // request and can trigger a preflight that fails on servers/proxies
+        // that don't explicitly allow it.
         'Accept': 'application/json; version=10'
       }
     });
@@ -216,21 +221,25 @@ async function makePaperlessRequest(endpoint, options = {}, settings = null) {
   }
 
   const url = `${settings.paperlessUrl.replace(/\/$/, '')}${endpoint}`;
-  const defaultOptions = {
-    headers: {
-      'Authorization': `Token ${settings.paperlessToken}`,
-      'Content-Type': 'application/json',
-      // Pin the API version so behavior is deterministic regardless of the
-      // server's default (Paperless-ngx v3+ changed its default to v10).
-      'Accept': 'application/json; version=10'
-    }
+  const baseHeaders = {
+    'Authorization': `Token ${settings.paperlessToken}`,
+    // Pin the API version so behavior is deterministic regardless of the
+    // server's default (Paperless-ngx v3+ changed its default to v10).
+    'Accept': 'application/json; version=10'
   };
 
+  // Only set Content-Type when there is actually a body to send.
+  // Setting it on bodyless GET requests turns them into "non-simple"
+  // CORS requests and can trigger a preflight that fails on servers/proxies
+  // that don't explicitly allow these headers, silently breaking the request.
+  if (options.body) {
+    baseHeaders['Content-Type'] = 'application/json';
+  }
+
   const mergedOptions = {
-    ...defaultOptions,
     ...options,
     headers: {
-      ...defaultOptions.headers,
+      ...baseHeaders,
       ...(options.headers || {})
     }
   };
