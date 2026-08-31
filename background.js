@@ -5,6 +5,11 @@ console.log("Send to Paperless-ngx Add-On loaded!");
 const DOCUMENT_PROCESSING_MAX_ATTEMPTS = 60;
 const DOCUMENT_PROCESSING_DELAY_MS = 1000;
 
+// Pin the Paperless-ngx REST API version so behavior is deterministic
+// regardless of the server's default (Paperless-ngx v3+ defaults to v10,
+// which changed the task API response shape - see waitForDocumentId()).
+const PAPERLESS_API_ACCEPT_HEADER = 'application/json; version=10';
+
 // Configuration constants for Thunderbird tag
 const PAPERLESS_TAG_PREFERRED_KEY = "paperless"; // desired key when creating new
 const PAPERLESS_TAG_LABEL = "Paperless";
@@ -553,7 +558,10 @@ async function getOrCreateCustomField(config, fieldName, fieldType, selectOption
   try {
     // First, try to find existing custom field
     const response = await fetch(`${config.url}/api/custom_fields/`, {
-      headers: { 'Authorization': `Token ${config.token}` }
+      headers: {
+        'Authorization': `Token ${config.token}`,
+        'Accept': PAPERLESS_API_ACCEPT_HEADER
+      }
     });
 
     if (!response.ok) {
@@ -581,7 +589,8 @@ async function getOrCreateCustomField(config, fieldName, fieldType, selectOption
       method: 'POST',
       headers: {
         'Authorization': `Token ${config.token}`,
-        'Content-Type': 'application/json'
+        'Content-Type': 'application/json',
+        'Accept': PAPERLESS_API_ACCEPT_HEADER
       },
       body: JSON.stringify(createBody)
     });
@@ -604,7 +613,10 @@ async function getOrCreateDocumentType(config, typeName) {
   try {
     // First, try to find existing document type
     const response = await fetch(`${config.url}/api/document_types/?page_size=1000`, {
-      headers: { 'Authorization': `Token ${config.token}` }
+      headers: {
+        'Authorization': `Token ${config.token}`,
+        'Accept': PAPERLESS_API_ACCEPT_HEADER
+      }
     });
 
     if (!response.ok) {
@@ -623,7 +635,8 @@ async function getOrCreateDocumentType(config, typeName) {
       method: 'POST',
       headers: {
         'Authorization': `Token ${config.token}`,
-        'Content-Type': 'application/json'
+        'Content-Type': 'application/json',
+        'Accept': PAPERLESS_API_ACCEPT_HEADER
       },
       body: JSON.stringify({ name: typeName })
     });
@@ -649,7 +662,8 @@ async function updateDocumentCustomFields(config, documentId, customFields) {
       method: 'PATCH',
       headers: {
         'Authorization': `Token ${config.token}`,
-        'Content-Type': 'application/json'
+        'Content-Type': 'application/json',
+        'Accept': PAPERLESS_API_ACCEPT_HEADER
       },
       body: JSON.stringify({ custom_fields: customFields })
     });
@@ -984,7 +998,8 @@ async function uploadEmailWithAttachments(messageData, emailPdfData, selectedAtt
     const emailUploadResponse = await fetch(`${config.url}/api/documents/post_document/`, {
       method: 'POST',
       headers: {
-        'Authorization': `Token ${config.token}`
+        'Authorization': `Token ${config.token}`,
+        'Accept': PAPERLESS_API_ACCEPT_HEADER
       },
       body: emailFormData
     });
@@ -1073,7 +1088,8 @@ async function uploadEmailWithAttachments(messageData, emailPdfData, selectedAtt
         const attachmentResponse = await fetch(`${config.url}/api/documents/post_document/`, {
           method: 'POST',
           headers: {
-            'Authorization': `Token ${config.token}`
+            'Authorization': `Token ${config.token}`,
+            'Accept': PAPERLESS_API_ACCEPT_HEADER
           },
           body: attachmentFormData
         });
@@ -1921,7 +1937,7 @@ async function uploadEmailAsHtml(messageData, selectedAttachments, direction, co
 
     const pdfResponse = await fetch(`${config.url}/api/documents/post_document/`, {
       method: 'POST',
-      headers: { 'Authorization': `Token ${config.token}` },
+      headers: { 'Authorization': `Token ${config.token}`, 'Accept': PAPERLESS_API_ACCEPT_HEADER },
       body: pdfFormData
     });
 
@@ -1983,7 +1999,7 @@ async function uploadEmailAsHtml(messageData, selectedAttachments, direction, co
 
         const attachmentResponse = await fetch(`${config.url}/api/documents/post_document/`, {
           method: 'POST',
-          headers: { 'Authorization': `Token ${config.token}` },
+          headers: { 'Authorization': `Token ${config.token}`, 'Accept': PAPERLESS_API_ACCEPT_HEADER },
           body: attachmentFormData
         });
 
@@ -2201,7 +2217,7 @@ async function uploadEmailAsEml(messageData, selectedAttachments, direction, cor
 
     const emlResponse = await fetch(`${config.url}/api/documents/post_document/`, {
       method: 'POST',
-      headers: { 'Authorization': `Token ${config.token}` },
+      headers: { 'Authorization': `Token ${config.token}`, 'Accept': PAPERLESS_API_ACCEPT_HEADER },
       body: emlFormData
     });
 
@@ -2263,7 +2279,7 @@ async function uploadEmailAsEml(messageData, selectedAttachments, direction, cor
 
         const attachmentResponse = await fetch(`${config.url}/api/documents/post_document/`, {
           method: 'POST',
-          headers: { 'Authorization': `Token ${config.token}` },
+          headers: { 'Authorization': `Token ${config.token}`, 'Accept': PAPERLESS_API_ACCEPT_HEADER },
           body: attachmentFormData
         });
 
@@ -2347,7 +2363,7 @@ async function waitForDocumentId(config, taskId, maxAttempts = DOCUMENT_PROCESSI
       
       // Check task status
       const taskResponse = await fetch(taskUrl, {
-        headers: { 'Authorization': `Token ${config.token}` }
+        headers: { 'Authorization': `Token ${config.token}`, 'Accept': PAPERLESS_API_ACCEPT_HEADER }
       });
 
       if (taskResponse.ok) {
@@ -2356,37 +2372,40 @@ async function waitForDocumentId(config, taskId, maxAttempts = DOCUMENT_PROCESSI
         if (taskData.length > 0) {
           const task = taskData[0];
           
-          if (task.status === 'SUCCESS' && task.related_document) {
+          if (task.status === 'SUCCESS') {
             
             let docId = null;
-            const relatedDoc = task.related_document;
-            
+
             // Try to extract document ID - Paperless can return it in different formats:
-            // 1. As a simple string/number: "465" or 465
-            // 2. As a URL: "/api/documents/465/"
-            
-            if (typeof relatedDoc === 'number') {
-              // Direct number
-              docId = relatedDoc;
-            } else if (typeof relatedDoc === 'string') {
-              // Try to parse as URL first
-              const urlMatch = relatedDoc.match(/\/api\/documents\/(\d+)\//);
-              if (urlMatch) {
-                docId = parseInt(urlMatch[1], 10);
-              } else if (/^\d+$/.test(relatedDoc)) {
-                // Try to parse as simple number string
-                docId = parseInt(relatedDoc, 10);
-              } else {
-                console.error(`📋 ❌ Could not parse document ID from: "${relatedDoc}"`);
+            // 1. Paperless-ngx v3+ (API v10): related_document_ids, an array of integers
+            // 2. Older servers (API v9 and earlier): related_document, a single string/number
+            //    or a URL like "/api/documents/465/"
+
+            if (Array.isArray(task.related_document_ids) && task.related_document_ids.length > 0) {
+              // Paperless-ngx v3+ / API v10
+              const candidate = task.related_document_ids[0];
+              if (Number.isInteger(candidate) && candidate >= 0) {
+                docId = candidate;
               }
-            } else {
-              console.error(`📋 ❌ Unexpected related_document type: ${typeof relatedDoc}`);
+            } else if (task.related_document) {
+              // Fallback for older server responses / compatibility
+              const relatedDoc = task.related_document;
+              if (typeof relatedDoc === 'number') {
+                docId = relatedDoc;
+              } else if (typeof relatedDoc === 'string') {
+                const urlMatch = relatedDoc.match(/\/api\/documents\/(\d+)\//);
+                if (urlMatch) {
+                  docId = parseInt(urlMatch[1], 10);
+                } else if (/^\d+$/.test(relatedDoc)) {
+                  docId = parseInt(relatedDoc, 10);
+                }
+              }
             }
             
             if (Number.isInteger(docId) && docId >= 0) {
               return docId;
             } else {
-              console.error(`📋 ❌ Could not determine valid document ID`);
+              console.error('📋 ❌ Could not determine valid document ID from task response:', task);
               return null;
             }
           } else if (task.status === 'FAILURE') {
@@ -2477,7 +2496,8 @@ async function uploadPdfToPaperless(message, attachment, options = {}) {
     const response = await fetch(`${config.url}/api/documents/post_document/`, {
       method: 'POST',
       headers: {
-        'Authorization': `Token ${config.token}`
+        'Authorization': `Token ${config.token}`,
+        'Accept': PAPERLESS_API_ACCEPT_HEADER
       },
       body: formData
     });
@@ -2618,7 +2638,7 @@ browser.runtime.onMessage.addListener(async (message, sender, sendResponse) => {
     try {
       const config = await getPaperlessConfig();
       const response = await fetch(`${config.url}/api/correspondents/?page_size=1000`, {
-        headers: { 'Authorization': `Token ${config.token}` }
+        headers: { 'Authorization': `Token ${config.token}`, 'Accept': PAPERLESS_API_ACCEPT_HEADER }
       });
 
       if (response.ok) {
@@ -2637,7 +2657,7 @@ browser.runtime.onMessage.addListener(async (message, sender, sendResponse) => {
     try {
       const config = await getPaperlessConfig();
       const response = await fetch(`${config.url}/api/document_types/?page_size=1000`, {
-        headers: { 'Authorization': `Token ${config.token}` }
+        headers: { 'Authorization': `Token ${config.token}`, 'Accept': PAPERLESS_API_ACCEPT_HEADER }
       });
 
       if (response.ok) {
@@ -2656,7 +2676,7 @@ browser.runtime.onMessage.addListener(async (message, sender, sendResponse) => {
     try {
       const config = await getPaperlessConfig();
       const response = await fetch(`${config.url}/api/tags/?page_size=1000`, {
-        headers: { 'Authorization': `Token ${config.token}` }
+        headers: { 'Authorization': `Token ${config.token}`, 'Accept': PAPERLESS_API_ACCEPT_HEADER }
       });
 
       if (response.ok) {

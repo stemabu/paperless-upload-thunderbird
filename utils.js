@@ -73,7 +73,8 @@ async function testPaperlessConnection(url, token) {
       method: 'GET',
       headers: {
         'Authorization': `Token ${token}`,
-        'Content-Type': 'application/json'
+        'Content-Type': 'application/json',
+        'Accept': 'application/json; version=10'
       }
     });
     return response.ok;
@@ -218,7 +219,10 @@ async function makePaperlessRequest(endpoint, options = {}, settings = null) {
   const defaultOptions = {
     headers: {
       'Authorization': `Token ${settings.paperlessToken}`,
-      'Content-Type': 'application/json'
+      'Content-Type': 'application/json',
+      // Pin the API version so behavior is deterministic regardless of the
+      // server's default (Paperless-ngx v3+ changed its default to v10).
+      'Accept': 'application/json; version=10'
     }
   };
 
