@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Send to Paperless-ngx",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Emails und Anhänge zu Paperless-ngx übertragen",
   "browser_specific_settings": {
     "gecko": {
