@@ -2368,9 +2368,13 @@ async function waitForDocumentId(config, taskId, maxAttempts = DOCUMENT_PROCESSI
 
       if (taskResponse.ok) {
         const taskData = await taskResponse.json();
-        
-        if (taskData.length > 0) {
-          const task = taskData[0];
+
+        // Paperless-ngx v3+ paginates the task list (`{ count, next, previous, results }`).
+        // Older servers / API versions may still return a plain array.
+        const taskList = Array.isArray(taskData) ? taskData : (taskData.results || []);
+
+        if (taskList.length > 0) {
+          const task = taskList[0];
           
           if (task.status === 'SUCCESS') {
             
