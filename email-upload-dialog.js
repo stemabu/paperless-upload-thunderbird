@@ -1,3 +1,93 @@
+function formatElapsedTime(milliseconds) {
+  const totalSeconds =
+    Math.floor((milliseconds || 0) / 1000);
+
+  if (totalSeconds < 60) {
+    return `${totalSeconds} Sek.`;
+  }
+
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+
+  return `${minutes} Min. ${seconds} Sek.`;
+}
+
+function formatTimeout(milliseconds) {
+  const minutes =
+    Math.round((milliseconds || 300000) / 60000);
+
+  return `${minutes} Min.`;
+}
+
+function showUploadProgress(progress) {
+  const progressElement =
+    document.getElementById('uploadProgress');
+
+  const textElement =
+    document.getElementById('uploadProgressText');
+
+  if (!progressElement || !textElement) {
+    return;
+  }
+
+  progressElement.style.display = 'block';
+  progressElement.classList.remove('success');
+
+  const elapsed =
+    formatElapsedTime(progress.elapsedMs);
+
+  const timeout =
+    formatTimeout(progress.timeoutMs);
+
+  let text;
+
+  if (progress.status === 'success') {
+    progressElement.classList.add('success');
+
+    if (progress.documentType === 'attachment') {
+      text =
+        `✅ Anhang ${progress.current} von ${progress.total} ` +
+        `erfolgreich verarbeitet: ${progress.name}`;
+    } else {
+      text = '✅ E-Mail erfolgreich verarbeitet.';
+    }
+
+  } else if (progress.status === 'timeout') {
+    text =
+      `⏱️ Timeout nach ${elapsed}: ` +
+      `${progress.name || 'Dokument'} wurde innerhalb von ` +
+      `${timeout} nicht fertig verarbeitet.`;
+
+  } else if (
+    progress.status === 'failure' ||
+    progress.status === 'revoked'
+  ) {
+    text =
+      `❌ ${progress.name || 'Dokument'} konnte von Paperless ` +
+      `nicht verarbeitet werden.`;
+
+  } else if (progress.documentType === 'attachment') {
+    text =
+      `⏳ Anhang ${progress.current} von ${progress.total}: ` +
+      `${progress.name} wird verarbeitet … ` +
+      `(${elapsed} / ${timeout})`;
+
+  } else {
+    text =
+      `⏳ ${progress.name || 'E-Mail'} wird verarbeitet … ` +
+      `(${elapsed} / ${timeout})`;
+  }
+
+  textElement.textContent = text;
+}
+
+browser.runtime.onMessage.addListener(message => {
+  if (message.action === 'paperlessUploadProgress') {
+    showUploadProgress(message);
+  }
+});
+
+
 // Email upload dialog - handles converting email to PDF and uploading to Paperless-ngx
 
 let currentMessage = null;
@@ -1196,6 +1286,7 @@ async function handleUpload(event) {
 
     // Get document date from email date
     const documentDate = currentMessage.date ? new Date(currentMessage.date).toISOString().split('T')[0] : null;
+    const processingTimeout = parseInt(document.getElementById('processingTimeout').value,10);
 
     let result;
 
@@ -1210,7 +1301,8 @@ async function handleUpload(event) {
         tags: selectedTags,
         documentDate: documentDate,
         qnoteText: qnoteText,
-        qnoteDate: qnoteDate
+        qnoteDate: qnoteDate,
+        processingTimeout: processingTimeout
       });
     } else {
       // Generate PDF locally using html2canvas + jsPDF
@@ -1231,7 +1323,8 @@ async function handleUpload(event) {
         direction: direction,
         correspondent: correspondent,
         tags: selectedTags,
-        documentDate: documentDate
+        documentDate: documentDate,
+        processingTimeout: processingTimeout
       });
     }
 
