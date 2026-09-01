@@ -1152,11 +1152,15 @@ async function uploadEmailWithAttachments(messageData, emailPdfData, selectedAtt
           attachmentCustomFields.push(directionCustomField);
         }
         
-        // Add link to email document
-        attachmentCustomFields.push({
-          field: relatedDocsField.id,
-          value: [emailDocId]
-        });
+       // Link attachment to the email and to all other attachments.
+       const relatedAttachmentIds = attachmentDocIds.filter(
+         id => id !== attachmentDocId
+       );
+
+       attachmentCustomFields.push({
+         field: relatedDocsField.id,
+         value: [emailDocId, ...relatedAttachmentIds]
+       });
         
         if (attachmentCustomFields.length > 0) {
           await updateDocumentCustomFields(config, attachmentDocId, attachmentCustomFields);
@@ -2041,7 +2045,15 @@ async function uploadEmailAsHtml(messageData, selectedAttachments, direction, co
         if (directionOptionId) {
           attachmentCustomFields.push({ field: directionField.id, value: String(directionOptionId) });
         }
-        attachmentCustomFields.push({ field: relatedDocsField.id, value: [emailDocId] });
+    // Link attachment to the email and to all other attachments.
+     const relatedAttachmentIds = attachmentDocIds.filter(
+       id => id !== attachmentDocId
+     );
+
+     attachmentCustomFields.push({
+       field: relatedDocsField.id,
+       value: [emailDocId, ...relatedAttachmentIds]
+     });
         await updateDocumentCustomFields(config, attachmentDocId, attachmentCustomFields);
       } catch (error) {
         console.error('📧 Attachment field update error:', error);
@@ -2321,7 +2333,15 @@ async function uploadEmailAsEml(messageData, selectedAttachments, direction, cor
         if (directionOptionId) {
           attachmentCustomFields.push({ field: directionField.id, value: String(directionOptionId) });
         }
-        attachmentCustomFields.push({ field: relatedDocsField.id, value: [emailDocId] });
+     // Link attachment to the email and to all other attachments.
+     const relatedAttachmentIds = attachmentDocIds.filter(
+       id => id !== attachmentDocId
+     );
+
+     attachmentCustomFields.push({
+       field: relatedDocsField.id,
+       value: [emailDocId, ...relatedAttachmentIds]
+     });
         await updateDocumentCustomFields(config, attachmentDocId, attachmentCustomFields);
       } catch (error) {
         console.error('📧 Attachment field update error:', error);
