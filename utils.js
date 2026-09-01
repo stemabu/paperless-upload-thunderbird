@@ -218,7 +218,9 @@ async function makePaperlessRequest(endpoint, options = {}, settings = null) {
   const defaultOptions = {
     headers: {
       'Authorization': `Token ${settings.paperlessToken}`,
-      'Content-Type': 'application/json'
+      'Content-Type': 'application/json',
+      'Accept': 'application/json; version=10'
+      
     }
   };
 
