@@ -1,9 +1,28 @@
 // Background script for Paperless-ngx PDF Uploader
 console.log("Send to Paperless-ngx Add-On loaded!");
 
-// Configuration constants for document processing
-const DOCUMENT_PROCESSING_MAX_ATTEMPTS = 60;
-const DOCUMENT_PROCESSING_DELAY_MS = 1000;
+// Default timeout for Paperless document processing: 5 minutes
+const DOCUMENT_PROCESSING_DEFAULT_TIMEOUT_MS = 5 * 60 * 1000;
+
+// Allowed timeout values from the upload dialog
+const DOCUMENT_PROCESSING_ALLOWED_TIMEOUTS = [
+  2 * 60 * 1000,
+  3 * 60 * 1000,
+  4 * 60 * 1000,
+  5 * 60 * 1000,
+  10 * 60 * 1000
+];
+
+// Progressive polling intervals
+// 0-6 seconds: every 1 second
+// 6-30 seconds: every 2 seconds
+// after 30 seconds: every 5 seconds
+const DOCUMENT_PROCESSING_INITIAL_INTERVAL_MS = 1000;
+const DOCUMENT_PROCESSING_MEDIUM_INTERVAL_MS = 2000;
+const DOCUMENT_PROCESSING_LONG_INTERVAL_MS = 5000;
+
+const DOCUMENT_PROCESSING_MEDIUM_AFTER_MS = 6000;
+const DOCUMENT_PROCESSING_LONG_AFTER_MS = 30000;
 
 // Configuration constants for Thunderbird tag
 const PAPERLESS_TAG_PREFERRED_KEY = "paperless"; // desired key when creating new
@@ -2368,27 +2387,54 @@ async function uploadEmailAsEml(messageData, selectedAttachments, direction, cor
   }
 }
 
+// Send upload progress information to the upload dialog.
+function sendUploadProgress(progress) {
+  browser.runtime.sendMessage({
+    action: 'paperlessUploadProgress',
+    ...progress
+  }).catch(() => {
+    // The upload dialog may already have been closed.
+  });
+}
+
 // Wait for document to be processed and return the document ID
 // Polls the Paperless-ngx tasks API until the document is processed or timeout occurs
-async function waitForDocumentId(config, taskId, maxAttempts = DOCUMENT_PROCESSING_MAX_ATTEMPTS, delayMs = DOCUMENT_PROCESSING_DELAY_MS) {
-
-  const normalizedTaskId = String(taskId || '').trim().replace(/^"|"$/g, '');
+async function waitForDocumentId(
+  config,
+  taskId,
+  timeoutMs = DOCUMENT_PROCESSING_DEFAULT_TIMEOUT_MS,
+  onProgress = null
+) {
+  const normalizedTaskId = String(taskId || '')
+    .trim()
+    .replace(/^"|"$/g, '');
 
   if (!normalizedTaskId) {
-    console.error('📋 ❌ No Paperless task ID was returned by the upload endpoint');
+    console.error(
+      '📋 ❌ No Paperless task ID was returned by the upload endpoint'
+    );
     return null;
   }
 
-  // Extract the document ID from Paperless API v10 or v9 task data.
+  // Only accept timeout values supplied by the upload dialog.
+  const effectiveTimeout =
+    DOCUMENT_PROCESSING_ALLOWED_TIMEOUTS.includes(Number(timeoutMs))
+      ? Number(timeoutMs)
+      : DOCUMENT_PROCESSING_DEFAULT_TIMEOUT_MS;
+
+  const startTime = Date.now();
+  let lastStatus = null;
+
   const extractDocumentId = (task) => {
     if (!task) {
       return null;
     }
 
-    // Paperless API v10:
-    // related_document_ids contains the IDs of related documents.
-    if (Array.isArray(task.related_document_ids) &&
-        task.related_document_ids.length > 0) {
+    // Paperless API v10
+    if (
+      Array.isArray(task.related_document_ids) &&
+      task.related_document_ids.length > 0
+    ) {
       const docId = Number(task.related_document_ids[0]);
 
       if (Number.isInteger(docId) && docId >= 0) {
@@ -2396,13 +2442,16 @@ async function waitForDocumentId(config, taskId, maxAttempts = DOCUMENT_PROCESSI
       }
     }
 
-    // Paperless API v10:
-    // result_data contains the result of the consumption task.
+    // Paperless API v10 result data
     if (task.result_data && typeof task.result_data === 'object') {
       const resultDocumentId =
-        task.result_data.document_id ?? task.result_data.duplicate_of;
+        task.result_data.document_id ??
+        task.result_data.duplicate_of;
 
-      if (resultDocumentId !== undefined && resultDocumentId !== null) {
+      if (
+        resultDocumentId !== undefined &&
+        resultDocumentId !== null
+      ) {
         const docId = Number(resultDocumentId);
 
         if (Number.isInteger(docId) && docId >= 0) {
@@ -2411,9 +2460,7 @@ async function waitForDocumentId(config, taskId, maxAttempts = DOCUMENT_PROCESSI
       }
     }
 
-    // Paperless API v9 compatibility:
-    // related_document may be a number, a numeric string,
-    // or an API URL such as /api/documents/465/.
+    // Compatibility with older Paperless API responses
     const relatedDoc = task.related_document;
 
     if (typeof relatedDoc === 'number') {
@@ -2423,7 +2470,9 @@ async function waitForDocumentId(config, taskId, maxAttempts = DOCUMENT_PROCESSI
     }
 
     if (typeof relatedDoc === 'string') {
-      const urlMatch = relatedDoc.match(/\/api\/documents\/(\d+)\//);
+      const urlMatch = relatedDoc.match(
+        /\/api\/documents\/(\d+)\//
+      );
 
       if (urlMatch) {
         return parseInt(urlMatch[1], 10);
@@ -2437,12 +2486,29 @@ async function waitForDocumentId(config, taskId, maxAttempts = DOCUMENT_PROCESSI
     return null;
   };
 
-  for (let attempt = 0; attempt < maxAttempts; attempt++) {
+  while (true) {
+    const elapsedMs = Date.now() - startTime;
+
+    if (elapsedMs >= effectiveTimeout) {
+      console.warn(
+        `📋 ⏱️ Timeout waiting for document ID after ${Math.round(elapsedMs / 1000)} seconds`
+      );
+
+      if (onProgress) {
+        onProgress({
+          status: 'timeout',
+          elapsedMs,
+          timeoutMs: effectiveTimeout
+        });
+      }
+
+      return null;
+    }
+
     try {
       const taskUrl =
         `${config.url}/api/tasks/?task_id=${encodeURIComponent(normalizedTaskId)}`;
 
-      // Explicitly request Paperless API v10.
       const taskResponse = await fetch(taskUrl, {
         headers: {
           'Authorization': `Token ${config.token}`,
@@ -2453,33 +2519,44 @@ async function waitForDocumentId(config, taskId, maxAttempts = DOCUMENT_PROCESSI
       if (taskResponse.ok) {
         const taskData = await taskResponse.json();
 
-        // API v10 returns a paginated response:
-        //
-        // {
-        //   "count": 1,
-        //   "next": null,
-        //   "previous": null,
-        //   "results": [...]
-        // }
         const task = Array.isArray(taskData.results)
           ? taskData.results[0]
           : null;
 
         if (task) {
-          // API v10 uses lowercase status values:
-          // pending, started, success, failure, revoked
-          //
-          // API v9 uses uppercase values. Converting to lowercase
-          // keeps this function compatible with both.
-          const status = String(task.status || '').toLowerCase();
+          const status =
+            String(task.status || '').toLowerCase();
+
+          // Only send a progress update when the status changes.
+          if (status !== lastStatus) {
+            lastStatus = status;
+
+            if (onProgress) {
+              onProgress({
+                status,
+                elapsedMs: Date.now() - startTime,
+                timeoutMs: effectiveTimeout
+              });
+            }
+          }
 
           if (status === 'success') {
             const docId = extractDocumentId(task);
 
             if (docId !== null) {
+              if (onProgress) {
+                onProgress({
+                  status: 'success',
+                  elapsedMs: Date.now() - startTime,
+                  timeoutMs: effectiveTimeout,
+                  documentId: docId
+                });
+              }
+
               console.log(
                 `📋 ✅ Paperless task completed successfully, document ID: ${docId}`
               );
+
               return docId;
             }
 
@@ -2491,17 +2568,25 @@ async function waitForDocumentId(config, taskId, maxAttempts = DOCUMENT_PROCESSI
             return null;
           }
 
-          if (status === 'failure' || status === 'revoked') {
+          if (
+            status === 'failure' ||
+            status === 'revoked'
+          ) {
             console.error(
               `📋 ❌ Paperless task ${status}:`,
               task.result_data || task.result || task
             );
 
+            if (onProgress) {
+              onProgress({
+                status,
+                elapsedMs: Date.now() - startTime,
+                timeoutMs: effectiveTimeout
+              });
+            }
+
             return null;
           }
-
-          // pending / started:
-          // continue polling.
         }
       } else {
         console.error(
@@ -2509,24 +2594,46 @@ async function waitForDocumentId(config, taskId, maxAttempts = DOCUMENT_PROCESSI
         );
       }
 
-      // Wait before next attempt.
-      await new Promise(resolve => setTimeout(resolve, delayMs));
-
     } catch (error) {
-      console.error("📋 ❌ Error checking task status:", error);
-
-      // Continue polling after a temporary network error.
-      await new Promise(resolve => setTimeout(resolve, delayMs));
+      console.error(
+        '📋 ❌ Error checking task status:',
+        error
+      );
     }
+
+    // Determine the polling interval from elapsed time.
+    const currentElapsedMs = Date.now() - startTime;
+
+    let pollingInterval;
+
+    if (currentElapsedMs < DOCUMENT_PROCESSING_MEDIUM_AFTER_MS) {
+      pollingInterval =
+        DOCUMENT_PROCESSING_INITIAL_INTERVAL_MS;
+    } else if (
+      currentElapsedMs < DOCUMENT_PROCESSING_LONG_AFTER_MS
+    ) {
+      pollingInterval =
+        DOCUMENT_PROCESSING_MEDIUM_INTERVAL_MS;
+    } else {
+      pollingInterval =
+        DOCUMENT_PROCESSING_LONG_INTERVAL_MS;
+    }
+
+    const remainingMs =
+      effectiveTimeout - currentElapsedMs;
+
+    if (remainingMs <= 0) {
+      continue;
+    }
+
+    await new Promise(resolve =>
+      setTimeout(
+        resolve,
+        Math.min(pollingInterval, remainingMs)
+      )
+    );
   }
-
-  console.warn(
-    `📋 ⏱️ Timeout waiting for document ID after ${maxAttempts} attempts`
-  );
-
-  return null;
 }
-
 // Convert base64 to Blob
 function base64ToBlob(base64, mimeType) {
   const byteCharacters = atob(base64);
