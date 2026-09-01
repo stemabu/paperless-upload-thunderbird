@@ -3035,7 +3035,7 @@ browser.runtime.onMessage.addListener(async (message, sender, sendResponse) => {
   if (message.action === "uploadEmailWithAttachments") {
     // For Thunderbird/Firefox, we need to return the Promise directly
     // Using sendResponse() with return true has timing issues
-    const { messageData, emailPdf, selectedAttachments, direction, correspondent, tags, documentDate } = message;
+    const { messageData, emailPdf, selectedAttachments, direction, correspondent, tags, documentDate, processingTimeout } = message;
 
     // Return the Promise directly - the caller will receive the resolved value
     return uploadEmailWithAttachments(
@@ -3045,13 +3045,14 @@ browser.runtime.onMessage.addListener(async (message, sender, sendResponse) => {
       direction,
       correspondent,
       tags,
-      documentDate
+      documentDate,
+      processingTimeout
     );
   }
 
   // Handle email upload as HTML file (Paperless Gotenberg conversion - better character encoding)
   if (message.action === "uploadEmailAsHtml") {
-    const { messageData, selectedAttachments, direction, correspondent, tags, documentDate, qnoteText, qnoteDate } = message;
+    const { messageData, selectedAttachments, direction, correspondent, tags, documentDate, qnoteText, qnoteDate, processingTimeout } = message;
 
     // Return the Promise directly - the caller will receive the resolved value
     return uploadEmailAsHtml(
@@ -3062,13 +3063,14 @@ browser.runtime.onMessage.addListener(async (message, sender, sendResponse) => {
       tags,
       documentDate,
       qnoteText || null,
-      qnoteDate || null
+      qnoteDate || null,
+      processingTimeout
     );
   }
 
   // Handle email upload as EML file (native format with libmagic compatibility)
   if (message.action === "uploadEmailAsEml") {
-    const { messageData, selectedAttachments, direction, correspondent, tags, documentDate } = message;
+    const { messageData, selectedAttachments, direction, correspondent, tags, documentDate, processingTimeout } = message;
 
     // Return the Promise directly - the caller will receive the resolved value
     return uploadEmailAsEml(
@@ -3077,7 +3079,8 @@ browser.runtime.onMessage.addListener(async (message, sender, sendResponse) => {
       direction,
       correspondent,
       tags,
-      documentDate
+      documentDate,
+      processingTimeout
     );
   }
 });
