@@ -313,6 +313,22 @@
       border-left: 3px solid #eab308;
       display: inline-block;
     }
+    .upload-progress {
+      background: #e7f3ff;
+      color: #0056b3;
+      padding: 10px;
+      border-radius: 4px;
+      margin: 10px 0;
+      border-left: 3px solid #007bff;
+      line-height: 1.5;
+      font-size: 13px;
+    }
+
+    .upload-progress.success {
+       background: #d4edda;
+       color: #155724;
+       border-left-color: #28a745;
+    }
   </style>
 </head>
 
@@ -358,6 +374,20 @@
           <div class="help-text">Wird fuer E-Mail und alle Anhänge gesetzt</div>
         </div>
 
+       <div class="form-group">
+          <label for="processingTimeout">Timeout für die Dokumentverarbeitung</label>
+          <select id="processingTimeout" name="processingTimeout">
+            <option value="120000">2 Minuten</option>
+            <option value="180000">3 Minuten</option>
+            <option value="240000">4 Minuten</option>
+            <option value="300000" selected>5 Minuten</option>
+            <option value="600000">10 Minuten</option>
+         </select>
+         <div class="help-text">
+            Maximale Wartezeit pro Dokument. Gilt für die E-Mail und jeden einzelnen Anhang.
+         </div>
+        </div>
+        
         <div class="checkbox-group">
           <input type="checkbox" id="pdfStrategy" name="pdfStrategy" aria-describedby="pdfStrategyHelp">
           <label for="pdfStrategy">Lokale PDF-Konvertierung (Browser)</label>
@@ -394,6 +424,9 @@
         </div>
 
         <div id="messageArea"></div>
+        <div id="uploadProgress" class="upload-progress" style="display: none;">
+          <span id="uploadProgressText"></span>
+        </div>
 
         <div class="button-group">
           <button type="button" class="btn btn-secondary" id="cancelBtn">Abbrechen</button>
