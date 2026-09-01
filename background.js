@@ -438,7 +438,11 @@ async function openEmailUploadDialog(message) {
 
     // Get all attachments (not just PDFs) - for email upload, we allow uploading
     // any attachment type since the email itself is converted to PDF
-    const attachments = await browser.messages.listAttachments(message.id);
+    // S/MIME signature attachment should not // appear in the attachment selection dialog.
+    const attachments = (await browser.messages.listAttachments(message.id))
+       .filter(attachment =>
+         (attachment.name || '').toLowerCase() !== 'smime.p7s'
+       );
 
     // Get email body (full message)
     const fullMessage = await browser.messages.getFull(message.id);
