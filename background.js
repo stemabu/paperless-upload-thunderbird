@@ -890,7 +890,7 @@ async function addPaperlessTagToEmail(messageId) {
 }
 
 // Upload email PDF and attachments with custom fields
-async function uploadEmailWithAttachments(messageData, emailPdfData, selectedAttachments, direction, correspondent, tags, documentDate) {
+async function uploadEmailWithAttachments(messageData, emailPdfData, selectedAttachments, direction, correspondent, tags, documentDate, processingTimeout = DOCUMENT_PROCESSING_DEFAULT_TIMEOUT_MS) {
   
   // Get configuration
   const config = await getPaperlessConfig();
@@ -1035,7 +1035,27 @@ async function uploadEmailWithAttachments(messageData, emailPdfData, selectedAtt
     const emailTaskId = await emailUploadResponse.text();
 
     // Wait for document to be processed and get the document ID
-    const emailDocId = await waitForDocumentId(config, emailTaskId.replace(/"/g, ''));
+    sendUploadProgress({
+      phase: 'processing',
+      documentType: 'email',
+      current: 0,
+      total: (selectedAttachments || []).length,
+      name: 'E-Mail'
+    });
+
+    const emailDocId = await waitForDocumentId(
+      config,
+      emailTaskId.replace(/"/g, ''),
+      processingTimeout,
+      progress => sendUploadProgress({
+        phase: 'processing',
+        documentType: 'email',
+        current: 0,
+        total: (selectedAttachments || []).length,
+        name: 'E-Mail',
+        ...progress
+      })
+    );
 
     if (!emailDocId) {
       console.warn('📧 ⚠️ Email document ID not found after waiting');
@@ -1054,7 +1074,15 @@ async function uploadEmailWithAttachments(messageData, emailPdfData, selectedAtt
     const attachmentDocIds = [];
     const attachmentErrors = [];
     
-    for (const attachment of selectedAttachments || []) {
+    const attachmentsToUpload = selectedAttachments || [];
+
+    for (
+      let attachmentIndex = 0;
+      attachmentIndex < attachmentsToUpload.length;
+      attachmentIndex++
+    ) {
+      const attachment = attachmentsToUpload[attachmentIndex];
+      const attachmentNumber = attachmentIndex + 1;
       
       // Get attachment file
       let attachmentFile;
@@ -1118,7 +1146,27 @@ async function uploadEmailWithAttachments(messageData, emailPdfData, selectedAtt
 
         const attachmentTaskId = await attachmentResponse.text();
         
-        const attachmentDocId = await waitForDocumentId(config, attachmentTaskId.replace(/"/g, ''));
+     sendUploadProgress({
+      phase: 'processing',
+      documentType: 'attachment',
+      current: attachmentNumber,
+      total: attachmentsToUpload.length,
+      name: attachment.name
+    });
+
+    const attachmentDocId = await waitForDocumentId(
+      config,
+      attachmentTaskId.replace(/"/g, ''),
+      processingTimeout,
+      progress => sendUploadProgress({
+        phase: 'processing',
+        documentType: 'attachment',
+        current: attachmentNumber,
+        total: attachmentsToUpload.length,
+        name: attachment.name,
+        ...progress
+       })
+     );
 
         if (attachmentDocId) {
           attachmentDocIds.push(attachmentDocId);
@@ -1640,7 +1688,7 @@ async function convertEmailToPdfViaGotenberg(messageData, emailBodyData, selecte
 
 // Upload email as HTML file for Paperless Gotenberg conversion (better character encoding)
 // Now uses direct Gotenberg API call instead of relying on Paperless internal Gotenberg
-async function uploadEmailAsHtml(messageData, selectedAttachments, direction, correspondent, tags, documentDate, qnoteText = null, qnoteDate = null) {
+async function uploadEmailAsHtml(messageData, selectedAttachments, direction, correspondent, tags, documentDate, qnoteText = null, qnoteDate = null, processingTimeout = DOCUMENT_PROCESSING_DEFAULT_TIMEOUT_MS) {
   
   // Get Gotenberg URL from settings
   const gotenbergResult = await browser.storage.sync.get(['gotenbergUrl']);
@@ -1972,7 +2020,27 @@ async function uploadEmailAsHtml(messageData, selectedAttachments, direction, co
 
     // Wait for document processing
     const pdfTaskId = await pdfResponse.text();
-    const emailDocId = await waitForDocumentId(config, pdfTaskId.replace(/"/g, ''));
+    sendUploadProgress({
+      phase: 'processing',
+      documentType: 'email',
+      current: 0,
+      total: (selectedAttachments || []).length,
+      name: 'E-Mail'
+    });
+
+    const emailDocId = await waitForDocumentId(
+      config,
+      pdfTaskId.replace(/"/g, ''),
+      processingTimeout,
+      progress => sendUploadProgress({
+        phase: 'processing',
+        documentType: 'email',
+        current: 0,
+        total: (selectedAttachments || []).length,
+        name: 'E-Mail',
+        ...progress
+      })
+    );
 
     if (!emailDocId) {
       console.warn('📧 ⚠️ Email document ID not found after waiting');
@@ -2027,7 +2095,27 @@ async function uploadEmailAsHtml(messageData, selectedAttachments, direction, co
         }
 
         const attachmentTaskId = await attachmentResponse.text();
-        const attachmentDocId = await waitForDocumentId(config, attachmentTaskId.replace(/"/g, ''));
+     sendUploadProgress({
+      phase: 'processing',
+      documentType: 'attachment',
+      current: attachmentNumber,
+      total: attachmentsToUpload.length,
+      name: attachment.name
+    });
+
+    const attachmentDocId = await waitForDocumentId(
+      config,
+      attachmentTaskId.replace(/"/g, ''),
+      processingTimeout,
+      progress => sendUploadProgress({
+        phase: 'processing',
+        documentType: 'attachment',
+        current: attachmentNumber,
+        total: attachmentsToUpload.length,
+        name: attachment.name,
+        ...progress
+      })
+    );
 
         if (attachmentDocId) {
           attachmentDocIds.push(attachmentDocId);
@@ -2101,7 +2189,7 @@ async function uploadEmailAsHtml(messageData, selectedAttachments, direction, co
 
 // Upload email as .eml file for Paperless-ngx with libmagic compatibility
 // Uses the From-header-first workaround for correct MIME type detection
-async function uploadEmailAsEml(messageData, selectedAttachments, direction, correspondent, tags, documentDate) {
+async function uploadEmailAsEml(messageData, selectedAttachments, direction, correspondent, tags, documentDate, processingTimeout = DOCUMENT_PROCESSING_DEFAULT_TIMEOUT_MS) {
   
   // Get configuration
   const config = await getPaperlessConfig();
@@ -2260,7 +2348,27 @@ async function uploadEmailAsEml(messageData, selectedAttachments, direction, cor
 
     // Wait for document processing
     const emlTaskId = await emlResponse.text();
-    const emailDocId = await waitForDocumentId(config, emlTaskId.replace(/"/g, ''));
+    sendUploadProgress({
+      phase: 'processing',
+      documentType: 'email',
+      current: 0,
+      total: (selectedAttachments || []).length,
+      name: 'E-Mail'
+    });
+
+    const emailDocId = await waitForDocumentId(
+      config,
+      pdfTaskId.replace(/"/g, ''),
+      processingTimeout,
+      progress => sendUploadProgress({
+        phase: 'processing',
+        documentType: 'email',
+        current: 0,
+        total: (selectedAttachments || []).length,
+        name: 'E-Mail',
+        ...progress
+       })
+    );
 
     if (!emailDocId) {
       console.warn('📧 ⚠️ Email document ID not found after waiting');
@@ -2274,7 +2382,15 @@ async function uploadEmailAsEml(messageData, selectedAttachments, direction, cor
     const attachmentDocIds = [];
     const attachmentErrors = [];
     
-    for (const attachment of selectedAttachments || []) {
+    const attachmentsToUpload = selectedAttachments || [];
+
+    for (
+       let attachmentIndex = 0;
+       attachmentIndex < attachmentsToUpload.length;
+       attachmentIndex++
+     ) {
+       const attachment = attachmentsToUpload[attachmentIndex];
+       const attachmentNumber = attachmentIndex + 1;
       
       try {
         const attachmentFile = await browser.messages.getAttachmentFile(
@@ -2315,7 +2431,27 @@ async function uploadEmailAsEml(messageData, selectedAttachments, direction, cor
         }
 
         const attachmentTaskId = await attachmentResponse.text();
-        const attachmentDocId = await waitForDocumentId(config, attachmentTaskId.replace(/"/g, ''));
+        sendUploadProgress({
+          phase: 'processing',
+          documentType: 'attachment',
+          current: attachmentNumber,
+          total: attachmentsToUpload.length,
+          name: attachment.name
+        });
+
+        const attachmentDocId = await waitForDocumentId(
+          config,
+          attachmentTaskId.replace(/"/g, ''),
+          processingTimeout,
+          progress => sendUploadProgress({
+           phase: 'processing',
+           documentType: 'attachment',
+           current: attachmentNumber,
+           total: attachmentsToUpload.length,
+           name: attachment.name,
+           ...progress
+          })
+        );
 
         if (attachmentDocId) {
           attachmentDocIds.push(attachmentDocId);
