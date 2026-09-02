@@ -1,0 +1,61 @@
+name: Update dependency bundles
+
+on:
+  pull_request:
+    types: [opened, synchronize]
+    paths:
+      - 'package.json'
+      - 'package-lock.json'
+      - '.github/dependabot.yml'
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  update-bundles:
+    if: github.actor == 'dependabot[bot]'
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Dependabot branch
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.head_ref }}
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci --ignore-scripts
+
+      - name: Update jsPDF bundle
+        run: |
+          cp node_modules/jspdf/dist/jspdf.umd.min.js ./jspdf.umd.min.js
+
+      - name: Update Fuse.js bundle
+        run: |
+          cp node_modules/fuse.js/dist/fuse.min.js ./fuse.min.js
+
+      - name: Check for changes
+        id: changes
+        run: |
+          if git diff --quiet -- jspdf.umd.min.js fuse.min.js; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Commit updated bundles
+        if: steps.changes.outputs.changed == 'true'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          git add jspdf.umd.min.js fuse.min.js
+          git commit -m "Update dependency bundles"
+          git push
