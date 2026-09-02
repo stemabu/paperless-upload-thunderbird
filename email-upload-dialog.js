@@ -12,6 +12,45 @@ function formatElapsedTime(milliseconds) {
   return `${minutes} Min. ${seconds} Sek.`;
 }
 
+let uploadProgressTimer = null;
+let uploadProgressState = null;
+
+function startUploadProgressTimer(progress) {
+  stopUploadProgressTimer();
+
+  uploadProgressState = {
+    ...progress,
+    startedAt: Date.now() - (progress.elapsedMs || 0)
+  };
+
+  updateUploadProgressTimer();
+
+  uploadProgressTimer = setInterval(() => {
+    updateUploadProgressTimer();
+  }, 1000);
+}
+
+function updateUploadProgressTimer() {
+  if (!uploadProgressState) {
+    return;
+  }
+
+  const elapsedMs =
+    Date.now() - uploadProgressState.startedAt;
+
+  showUploadProgress({
+    ...uploadProgressState,
+    elapsedMs
+  });
+}
+
+function stopUploadProgressTimer() {
+  if (uploadProgressTimer !== null) {
+    clearInterval(uploadProgressTimer);
+    uploadProgressTimer = null;
+  }
+}
+
 function formatTimeout(milliseconds) {
   const minutes =
     Math.round((milliseconds || 300000) / 60000);
@@ -41,18 +80,27 @@ function showUploadProgress(progress) {
 
   let text;
 
-  if (progress.status === 'success') {
-    progressElement.classList.add('success');
+if (progress.status === 'success') {
+  stopUploadProgressTimer();
 
-    if (progress.documentType === 'attachment') {
-      text =
-        `✅ Anhang ${progress.current} von ${progress.total} ` +
-        `erfolgreich verarbeitet: ${progress.name}`;
-    } else {
-      text = '✅ E-Mail erfolgreich verarbeitet.';
-    }
+  progressElement.classList.add('success');
+
+  const processingTime =
+    formatElapsedTime(progress.elapsedMs);
+
+  if (progress.documentType === 'attachment') {
+    text =
+      `✅ Anhang ${progress.current} von ${progress.total} ` +
+      `erfolgreich verarbeitet: ${progress.name} ` +
+      `(${processingTime})`;
+  } else {
+    text =
+      `✅ E-Mail erfolgreich verarbeitet. ` +
+      `(${processingTime})`;
+  }
 
   } else if (progress.status === 'timeout') {
+    stopUploadProgressTimer();
     text =
       `⏱️ Timeout nach ${elapsed}: ` +
       `${progress.name || 'Dokument'} wurde innerhalb von ` +
@@ -62,6 +110,7 @@ function showUploadProgress(progress) {
     progress.status === 'failure' ||
     progress.status === 'revoked'
   ) {
+    stopUploadProgressTimer();
     text =
       `❌ ${progress.name || 'Dokument'} konnte von Paperless ` +
       `nicht verarbeitet werden.`;
@@ -82,9 +131,21 @@ function showUploadProgress(progress) {
 }
 
 browser.runtime.onMessage.addListener(message => {
-  if (message.action === 'paperlessUploadProgress') {
-    showUploadProgress(message);
+  if (message.action !== 'paperlessUploadProgress') {
+    return;
   }
+
+  if (
+    message.status === 'success' ||
+    message.status === 'failure' ||
+    message.status === 'revoked' ||
+    message.status === 'timeout'
+  ) {
+    showUploadProgress(message);
+    return;
+  }
+
+  startUploadProgressTimer(message);
 });
 
 
