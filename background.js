@@ -1,8 +1,8 @@
 // Background script for Paperless-ngx PDF Uploader
 console.log("Send to Paperless-ngx Add-On loaded!");
 
-// Default timeout for Paperless document processing: 5 minutes
-const DOCUMENT_PROCESSING_DEFAULT_TIMEOUT_MS = 5 * 60 * 1000;
+// Default timeout for Paperless document processing: 2 minutes
+const DOCUMENT_PROCESSING_DEFAULT_TIMEOUT_MS = 2 * 60 * 1000;
 
 // Allowed timeout values from the upload dialog
 const DOCUMENT_PROCESSING_ALLOWED_TIMEOUTS = [
