@@ -2567,7 +2567,6 @@ async function waitForDocumentId(
       : DOCUMENT_PROCESSING_DEFAULT_TIMEOUT_MS;
 
   const startTime = Date.now();
-  let lastStatus = null;
 
   const extractDocumentId = (task) => {
     if (!task) {
@@ -2670,18 +2669,15 @@ async function waitForDocumentId(
         if (task) {
           const status =
             String(task.status || '').toLowerCase();
-
-          // Only send a progress update when the status changes.
-          if (status !== lastStatus) {
-            lastStatus = status;
-
-            if (onProgress) {
-              onProgress({
-                status,
-                elapsedMs: Date.now() - startTime,
-                timeoutMs: effectiveTimeout
-              });
-            }
+          
+          // Send a progress update on every poll.
+          // The dialog uses this to keep the elapsed time up to date.
+          if (onProgress) {
+            onProgress({
+              status,
+              elapsedMs: Date.now() - startTime,
+              timeoutMs: effectiveTimeout
+            });
           }
 
           if (status === 'success') {
