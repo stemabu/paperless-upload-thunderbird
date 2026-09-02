@@ -2054,7 +2054,15 @@ async function uploadEmailAsHtml(messageData, selectedAttachments, direction, co
     const attachmentDocIds = [];
     const attachmentErrors = [];
     
-    for (const attachment of selectedAttachments || []) {
+    const attachmentsToUpload = selectedAttachments || [];
+
+    for (
+      let attachmentIndex = 0;
+      attachmentIndex < attachmentsToUpload.length;
+      attachmentIndex++
+    ) {
+      const attachment = attachmentsToUpload[attachmentIndex];
+      const attachmentNumber = attachmentIndex + 1;
       
       try {
         const attachmentFile = await browser.messages.getAttachmentFile(
@@ -2905,7 +2913,15 @@ browser.runtime.onMessage.addListener(async (message, sender, sendResponse) => {
       let errorCount = 0;
 
       // Upload each selected attachment
-      for (const attachment of selectedAttachments) {
+      const attachmentsToUpload = selectedAttachments || [];
+
+      for (
+        let attachmentIndex = 0;
+        attachmentIndex < attachmentsToUpload.length;
+        attachmentIndex++
+      ) {
+        const attachment = attachmentsToUpload[attachmentIndex];
+        const attachmentNumber = attachmentIndex + 1;
         try {
           const result = await uploadPdfToPaperless(
             messageData,
