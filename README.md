@@ -3,9 +3,9 @@
 <p align="center">
   <img src="icons/icon-512.png" alt="Send-to-Paperless-Icon" width="256" height="256">
 </p>
-<p align="center">This Addon is based on https://github.com/sebastian-xyz/paperless-upload-thunderbird, **but it was heavily customized to my personal needs**.</p>
+<p align="center">This Addon is based on https://github.com/sebastian-xyz/paperless-upload-thunderbird, <br><b>but it was heavily customized to my personal needs</b>.</p>
 
-<p align="center">**Ab Version 1.0.0 funktioniert das Addon nur noch mit Paperless-ngx V3!**</p>
+<p align="center"><b>Ab Version 1.0.0 funktioniert das Addon nur noch mit Paperless-ngx V3!</b></p>
 
 ---
 
@@ -35,7 +35,7 @@
 - Möglichkeit, einen Time-Out festzulegen, falls der Server langsam arbeitet (default: 2 Minuten; 3, 4, 5, 10 Minuten).
 - Möglichkeit, die Umwandlung der E-Mail zum PDF lokal vorzunehmen und erst dann zu Paperless zu senden (kann z.B. sinnvoll sein, wenn Paperless-ngx auf einem NAS läuft).
 - Automatische Schlagwortvergabe "Paperless" in Thunderbird nach erfolgreichem Upload.
-- [in Vorbereitung:] Upload mehrerer E-Mails gleichzeitig (nur für E-Mails ohne Anhänge)
+- [in Vorbereitung:] Upload mehrerer E-Mails gleichzeitig (nur für E-Mails ohne Anhänge).
 - Deutsche Bedienoberfläche.
 
 ---
