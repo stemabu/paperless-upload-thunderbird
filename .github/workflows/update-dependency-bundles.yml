@@ -42,10 +42,6 @@ jobs:
           echo "Contents of node_modules/fuse.js:"
           find node_modules/fuse.js -maxdepth 2 -type f | sort
 
-      - name: Update Fuse.js bundle
-        run: |
-          cp node_modules/fuse.js/dist/fuse.min.js ./fuse.min.js
-
       - name: Update html2canvas bundle
         run: |
           cp node_modules/html2canvas/dist/html2canvas.min.js ./html2canvas.min.js
