@@ -1,28 +1,23 @@
 name: Update dependency bundles
 
 on:
-  pull_request:
-    types: [opened, synchronize]
+  push:
+    branches:
+      - main
     paths:
       - 'package.json'
       - 'package-lock.json'
-      - '.github/dependabot.yml'
 
 permissions:
   contents: write
-  pull-requests: write
 
 jobs:
   update-bundles:
-    if: github.actor == 'dependabot[bot]'
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout Dependabot branch
+      - name: Checkout repository
         uses: actions/checkout@v4
-        with:
-          ref: ${{ github.head_ref }}
-          token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Set up Node.js
         uses: actions/setup-node@v4
@@ -41,10 +36,14 @@ jobs:
         run: |
           cp node_modules/fuse.js/dist/fuse.min.js ./fuse.min.js
 
+      - name: Update html2canvas bundle
+        run: |
+          cp node_modules/html2canvas/dist/html2canvas.min.js ./html2canvas.min.js
+
       - name: Check for changes
         id: changes
         run: |
-          if git diff --quiet -- jspdf.umd.min.js fuse.min.js; then
+          if git diff --quiet -- jspdf.umd.min.js fuse.min.js html2canvas.min.js; then
             echo "changed=false" >> "$GITHUB_OUTPUT"
           else
             echo "changed=true" >> "$GITHUB_OUTPUT"
@@ -56,6 +55,6 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
-          git add jspdf.umd.min.js fuse.min.js
+          git add jspdf.umd.min.js fuse.min.js html2canvas.min.js
           git commit -m "Update dependency bundles"
           git push
