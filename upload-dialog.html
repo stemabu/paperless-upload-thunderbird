@@ -298,7 +298,7 @@
 
     <div id="mainContent" style="display: none;">
       <div class="file-info">
-        <h3>📎 Attachments to Upload</h3>
+        <h3>📎 Attachments, die hochgeladen werden</h3>
         <ul id="fileList" class="file-list"></ul>
       </div>
 
@@ -312,20 +312,20 @@
         <div class="form-group">
           <label for="documentTitle">Document Title *</label>
           <input type="text" id="documentTitle" name="title" required>
-          <div class="help-text">This will be the title in Paperless-ngx</div>
+          <div class="help-text">Dies wird der Titel in Paperless-ngx</div>
         </div>
 
 
         <div class="form-group">
-          <label for="correspondent">Correspondent</label>
+          <label for="correspondent">Korrespondent</label>
           <div style="display: flex; align-items: center; gap: 8px;">
             <select id="correspondent" name="correspondent" style="flex:1;">
-              <option value="">Select correspondent...</option>
+              <option value="">Wähle den Korrespondenten...</option>
             </select>
             <button type="button" id="addCorrespondentBtn" title="Add new correspondent"
               style="padding: 6px 10px; font-size: 18px; border-radius: 50%; border: none; background: #e7f3ff; color: #007bff; cursor: pointer;">+</button>
           </div>
-          <div class="help-text">Who sent this document</div>
+          <div class="help-text">Von wem wurde dieses Dokument erhalten?</div>
         </div>
 
 
@@ -341,16 +341,15 @@
           <div class="help-text">Category of this document</div>
         </div>
 
-        <div class="form-group">
-          <label for="tags">Tags</label>
-          <div class="tags-input" id="tagsInput">
-            <input type="text" class="tag-input" placeholder="Type to search tags..." autocomplete="off">
-          </div>
-          <div class="tag-suggestions" id="tagSuggestions" style="display: none;">
-            <!-- Tag suggestions will be populated here -->
-          </div>
-          <div class="help-text">Press Enter to add tags, click × to remove, or select from suggestions</div>
-        </div>
+       <div class="form-group">
+         <label for="tags">Tags</label>
+         <select id="tags" name="tags" multiple size="6">
+           <!-- Wird dynamisch befüllt -->
+         </select>
+         <div class="help-text">
+           Mehrfachauswahl mit Strg/Cmd
+         </div>
+       </div>
 
         <div class="form-group">
           <label for="documentDate">Document Date</label>
