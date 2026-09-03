@@ -34,13 +34,9 @@ jobs:
         run: |
           cp node_modules/jspdf/dist/jspdf.umd.min.js ./jspdf.umd.min.js
 
-      - name: Check Fuse.js package
+      - name: Update Fuse.js bundle
         run: |
-          echo "Installed Fuse.js version:"
-          npm list fuse.js
-          echo ""
-          echo "Contents of node_modules/fuse.js:"
-          find node_modules/fuse.js -maxdepth 2 -type f | sort
+          cp node_modules/fuse.js/dist/fuse.min.js ./fuse.min.js
 
       - name: Update html2canvas bundle
         run: |
