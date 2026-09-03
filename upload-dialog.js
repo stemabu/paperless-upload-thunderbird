@@ -1,10 +1,7 @@
-import Fuse from './fuse.min.mjs';
-
 let currentAttachments = [];
 let currentMessage = null;
-let selectedTags = [];
 let availableTags = [];
-let fuse = null;
+let documentTypes = [];
 
 document.addEventListener('DOMContentLoaded', async function () {
   await loadUploadData();
@@ -224,7 +221,7 @@ async function loadPaperlessData() {
     }
 
 
-    document_types = [];
+    documentTypes = [];
     // Fetch document types from Paperless-ngx API if settings are available
     if (settings.paperlessUrl && settings.paperlessToken) {
       try {
@@ -232,16 +229,16 @@ async function loadPaperlessData() {
         if (response.ok) {
           const data = await response.json();
           // Store document types
-          document_types = data.results.map(d => ({ id: d.id, name: d.name }));
+          documentTypes = data.results.map(d => ({ id: d.id, name: d.name }));
         }
       } catch (err) {
         console.error('Failed to fetch document types from Paperless-ngx:', err);
       }
     }
 
-    if (document_types.length > 0) {
+    if (documentTypes.length > 0) {
       const docTypeSelect = document.getElementById('documentType');
-      document_types.forEach(docType => {
+      documentTypes.forEach(docType => {
         const option = document.createElement('option');
         option.value = docType.id;
         option.textContent = docType.name;
@@ -249,26 +246,40 @@ async function loadPaperlessData() {
       });
     }
 
+availableTags = [];
 
-    tags = [];
+if (settings.paperlessUrl && settings.paperlessToken) {
+  try {
+    const response = await makePaperlessRequest(
+      '/api/tags/?page_size=1000',
+      {},
+      settings
+    );
 
-    // Fetch tags from Paperless-ngx API if settings are available
-    if (settings.paperlessUrl && settings.paperlessToken) {
-      try {
-        const response = await makePaperlessRequest('/api/tags/?page_size=1000', {}, settings);
-        if (response.ok) {
-          const data = await response.json();
-          // Store tags
-          tags = data.results.map(t => ({ id: t.id, name: t.name }));
-        }
-      } catch (err) {
-        console.error('Failed to fetch tags from Paperless-ngx:', err);
-      }
+    if (response.ok) {
+      const data = await response.json();
+
+      availableTags = data.results.map(tag => ({
+        id: tag.id,
+        name: tag.name
+      }));
+
+      const tagsSelect = document.getElementById('tags');
+
+      availableTags.forEach(tag => {
+        const option = document.createElement('option');
+        option.value = tag.id;
+        option.textContent = tag.name;
+        tagsSelect.appendChild(option);
+      });
     }
-
-    if (tags.length > 0) {
-      availableTags = tags;
-    }
+  } catch (err) {
+    console.error(
+      'Failed to fetch tags from Paperless-ngx:',
+      err
+    );
+  }
+}
 
   } catch (error) {
     console.error('Error loading Paperless data:', error);
@@ -284,203 +295,6 @@ function setupEventListeners() {
   document.getElementById('cancelBtn').addEventListener('click', () => {
     window.close();
   });
-
-  // Tags input
-  const tagInput = document.querySelector('.tag-input');
-  tagInput.addEventListener('keydown', handleTagInput);
-  tagInput.addEventListener('input', handleTagAutocomplete);
-
-  // Hide suggestions when clicking outside
-  document.addEventListener('click', function (event) {
-    const tagsContainer = document.getElementById('tagsInput');
-    if (!tagsContainer.contains(event.target)) {
-      hideSuggestions();
-    }
-  });
-}
-
-function handleTagInput(event) {
-  if (event.key === 'Enter') {
-    event.preventDefault();
-
-    // If a suggestion is selected, use it
-    const suggestions = document.querySelectorAll('.suggestion-item');
-    if (selectedSuggestionIndex >= 0 && suggestions[selectedSuggestionIndex]) {
-      const selectedTag = suggestions[selectedSuggestionIndex].textContent;
-      addTag(selectedTag);
-      event.target.value = '';
-      hideSuggestions();
-      return;
-    }
-
-    // Otherwise, use the input value
-    const tagValue = event.target.value.trim();
-    if (tagValue && !selectedTags.includes(tagValue)) {
-      addTag(tagValue);
-      event.target.value = '';
-      hideSuggestions();
-    }
-  } else if (event.key === 'Backspace' && event.target.value === '') {
-    // Remove last tag on backspace if input is empty
-    if (selectedTags.length > 0) {
-      removeTag(selectedTags[selectedTags.length - 1]);
-    }
-  } else if (event.key === 'ArrowDown') {
-    event.preventDefault();
-    navigateSuggestions(1);
-  } else if (event.key === 'ArrowUp') {
-    event.preventDefault();
-    navigateSuggestions(-1);
-  } else if (event.key === 'Escape') {
-    hideSuggestions();
-  }
-}
-
-function handleTagAutocomplete(event) {
-  const query = event.target.value.trim();
-
-  if (query.length === 0) {
-    hideSuggestions();
-    return;
-  }
-
-  // Initialize Fuse if not already done and we have tags
-  if (!fuse && availableTags.length > 0) {
-    const options = {
-      includeScore: true,
-      threshold: 0.4, // Lower = more strict, higher = more fuzzy
-      keys: ['name'] // Search in the name field
-    };
-    fuse = new Fuse(availableTags, options);
-  }
-
-  if (fuse) {
-    const results = fuse.search(query);
-    showSuggestions(results.map(result => result.item), query);
-  }
-}
-
-function addTag(tagName) {
-  if (!selectedTags.includes(tagName)) {
-    selectedTags.push(tagName);
-    renderTags();
-  }
-}
-
-function removeTag(tagName) {
-  selectedTags = selectedTags.filter(tag => tag !== tagName);
-  renderTags();
-}
-
-function renderTags() {
-  const tagsContainer = document.getElementById('tagsInput');
-  const tagInput = tagsContainer.querySelector('.tag-input');
-
-  // Remove existing tag elements
-  tagsContainer.querySelectorAll('.tag-item').forEach(el => el.remove());
-
-  // Add tag elements
-  selectedTags.forEach(tag => {
-    const tagElement = document.createElement('div');
-    tagElement.className = 'tag-item';
-
-    const tagText = document.createTextNode(tag);
-    tagElement.appendChild(tagText);
-
-    const removeButton = document.createElement('span');
-    removeButton.className = 'tag-remove';
-    removeButton.textContent = '×';
-    removeButton.addEventListener('click', () => removeTag(tag));
-
-    tagElement.appendChild(removeButton);
-    tagsContainer.insertBefore(tagElement, tagInput);
-  });
-}
-
-let selectedSuggestionIndex = -1;
-
-function showSuggestions(tags, query) {
-  hideSuggestions();
-
-  if (tags.length === 0) return;
-
-  const suggestionsContainer = document.getElementById('tagSuggestions');
-  selectedSuggestionIndex = -1;
-
-  // Filter out already selected tags
-  const filteredTags = tags.filter(tag => !selectedTags.includes(tag.name));
-
-  if (filteredTags.length === 0) return;
-
-  // Show up to 5 suggestions
-  const tagsToShow = filteredTags.slice(0, 5);
-
-  tagsToShow.forEach((tag, index) => {
-    const suggestionItem = document.createElement('div');
-    suggestionItem.className = 'suggestion-item';
-
-    // Create text with highlighted matching text safely
-    const regex = new RegExp(`(${escapeRegex(query)})`, 'gi');
-    const parts = tag.name.split(regex);
-
-    parts.forEach(part => {
-      if (part.toLowerCase() === query.toLowerCase()) {
-        const mark = document.createElement('mark');
-        mark.textContent = part;
-        suggestionItem.appendChild(mark);
-      } else {
-        suggestionItem.appendChild(document.createTextNode(part));
-      }
-    });
-
-    suggestionItem.addEventListener('click', () => {
-      addTag(tag.name);
-      const tagInput = document.querySelector('.tag-input');
-      tagInput.value = '';
-      hideSuggestions();
-      tagInput.focus();
-    });
-
-    suggestionsContainer.appendChild(suggestionItem);
-  });
-
-  suggestionsContainer.style.display = 'block';
-}
-
-function hideSuggestions() {
-  const suggestionsContainer = document.getElementById('tagSuggestions');
-  while (suggestionsContainer.firstChild) {
-    suggestionsContainer.removeChild(suggestionsContainer.firstChild);
-  }
-  suggestionsContainer.style.display = 'none';
-  selectedSuggestionIndex = -1;
-}
-
-function navigateSuggestions(direction) {
-  const suggestions = document.querySelectorAll('.suggestion-item');
-  if (suggestions.length === 0) return;
-
-  // Remove current selection
-  if (selectedSuggestionIndex >= 0) {
-    suggestions[selectedSuggestionIndex].classList.remove('selected');
-  }
-
-  // Update index
-  selectedSuggestionIndex += direction;
-
-  if (selectedSuggestionIndex < 0) {
-    selectedSuggestionIndex = suggestions.length - 1;
-  } else if (selectedSuggestionIndex >= suggestions.length) {
-    selectedSuggestionIndex = 0;
-  }
-
-  // Add selection to new item
-  suggestions[selectedSuggestionIndex].classList.add('selected');
-}
-
-function escapeRegex(string) {
-  return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-}
 
 async function handleUpload(event) {
   event.preventDefault();
@@ -501,12 +315,11 @@ async function handleUpload(event) {
     const documentTypeId = documentTypeValue ? parseInt(documentTypeValue, 10) : undefined;
 
     // Convert selectedTags (names) to IDs using availableTags
-    const tagIds = selectedTags
-      .map(tagName => {
-        const found = availableTags.find(t => t.name === tagName);
-        return found ? found.id : undefined;
-      })
-      .filter(id => id !== undefined);
+     const tagsSelect = document.getElementById('tags');
+
+     const tagIds = Array.from(tagsSelect.selectedOptions)
+       .map(option => parseInt(option.value, 10))
+       .filter(Number.isInteger);
 
     const uploadOptions = {};
 
