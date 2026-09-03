@@ -11,12 +11,12 @@
 
 ## Benutzung
 
-1. Öffne eine E-Mail (egal, ob mit oder ohne Attachment).
-2. Klicke auf den **Send to Paperless-ngx**-Button in the Thunderbird-Toolbar.
-3. Konfiguriere das Addon, indem Du die Paperless-ngx-Server-URL und den API-Key in den Optionen angibst (nur beim ersten Start notwendig).
+1. Vorbereitung: Öffne die Optionen des Addons (z.B. über Extras – Addons ...)
+2. **Stelle sicher, dass beim Reiter Berechtigungen "Auf Ihre Daten für alle Websites zugreifen" aktiviert ist.**
+3. Konfiguriere das Addon, indem Du beim Reiter Einstellungen die Paperless-ngx-Server-URL und den API-Key in den Optionen angibst (nur beim ersten Start notwendig).
 4. Schließe die Optionen.
-5. Durch Rechtsklick auf eine E-Mail in der E-Mail-Liste oder Drücken des Addon-Buttons erscheint der Upload-Dialog. Hier können der Korrespondent, ein Tag, die Richtung (eingehende oder ausgehende Mail), der Timeout beim Hochladen sowie ggf. mit zu übertragende Anhänge ausgewählt werden.
-6. Nachdem eine E-Mail erfolgreich zu Paperless übertragen wurde, wird die E-Mail in Thunderbird mit dem Schlagwort "Paperless" versehen.
+5. Durch Rechtsklick auf eine E-Mail in der E-Mail-Liste oder Drücken des Addon-Buttons in der Symbolleiste einer E-Mail erscheint der Upload-Dialog. Hier können der Korrespondent, ein Tag, die Richtung (eingehende oder ausgehende Mail), der Timeout beim Hochladen sowie ggf. mit zu übertragende Anhänge ausgewählt werden.
+6. Nachdem eine E-Mail erfolgreich zu Paperless übertragen wurde, wird die E-Mail in Thunderbird automatisch mit dem Schlagwort "Paperless" versehen.
 
 
 ## Überblick
