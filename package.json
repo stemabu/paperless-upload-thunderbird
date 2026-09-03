@@ -3,7 +3,7 @@
   "version": "0.8.3",
   "description": "Upload Emails and PDF attachments directly to Paperless-ngx from Thunderbird",
   "dependencies": {
-    "fuse.js": "^7.1.0",
+    "fuse.js": "^7.5.0",
     "html2canvas": "^1.4.1",
     "jspdf": "^4.2.1"
   }
