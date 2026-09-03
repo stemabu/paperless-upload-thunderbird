@@ -1,3 +1,5 @@
+import Fuse from './fuse.min.mjs';
+
 let currentAttachments = [];
 let currentMessage = null;
 let selectedTags = [];
