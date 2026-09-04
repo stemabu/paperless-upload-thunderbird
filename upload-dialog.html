@@ -322,7 +322,7 @@
             <select id="correspondent" name="correspondent" style="flex:1;">
               <option value="">Wähle den Korrespondenten...</option>
             </select>
-            <button type="button" id="addCorrespondentBtn" title="Add new correspondent"
+            <button type="button" id="addCorrespondentBtn" title="Füge neuen hinzu"
               style="padding: 6px 10px; font-size: 18px; border-radius: 50%; border: none; background: #e7f3ff; color: #007bff; cursor: pointer;">+</button>
           </div>
           <div class="help-text">Von wem wurde dieses Dokument erhalten?</div>
@@ -330,15 +330,15 @@
 
 
         <div class="form-group">
-          <label for="documentType">Document Type</label>
+          <label for="documentType">Dokumententyp</label>
           <div style="display: flex; align-items: center; gap: 8px;">
             <select id="documentType" name="document_type" style="flex:1;">
-              <option value="">Select document type...</option>
+              <option value="">Wähle den Dokumententyp...</option>
             </select>
-            <button type="button" id="addDocumentTypeBtn" title="Add new document type"
+            <button type="button" id="addDocumentTypeBtn" title="Füge neuen hinzu"
               style="padding: 6px 10px; font-size: 18px; border-radius: 50%; border: none; background: #e7f3ff; color: #007bff; cursor: pointer;">+</button>
           </div>
-          <div class="help-text">Category of this document</div>
+          <div class="help-text">Kategorie dieses Dokumentes</div>
         </div>
 
        <div class="form-group">
@@ -352,15 +352,9 @@
        </div>
 
         <div class="form-group">
-          <label for="documentDate">Document Date</label>
+          <label for="documentDate">Erstellungsdatum des Dokuments</label>
           <input type="date" id="documentDate" name="created">
-          <div class="help-text">When was this document created (defaults to email date)</div>
-        </div>
-
-        <div class="form-group">
-          <label for="source">Source</label>
-          <input type="text" id="source" name="source" value="Thunderbird Email">
-          <div class="help-text">Where this document came from</div>
+          <div class="help-text">Default ist das Datum der E-Mail</div>
         </div>
 
         <div id="messageArea"></div>
@@ -372,10 +366,10 @@
               style="height: 1em; width: 1em; vertical-align: middle; margin-right: 8px;">
             Upload to Paperless-ngx -->
             <div style="display: flex; align-items: center; justify-content: center;">
-              <img src="icons/icon-64.png" alt="Paperless PDF Uploader"
+              <img src="icons/icon-64.png" alt="Send2Paperless"
                 style="height: 2em; width: 2em; margin-right: 20px;">
               <div>
-                <div>Upload to</div>
+                <div>Hochladen zu</div>
                 <div>Paperless-ngx</div>
               </div>
             </div>
