@@ -1,5 +1,9 @@
 # Send to Paperless-ngx
 
+## Überblick
+
+**Send to Paperless-ngx** ist ein Thunderbird-Add-on, das das Hochladen von E-Mails und deren Anhängen direkt auf Ihren [paperless-ngx](https://github.com/paperless-ngx/paperless-ngx)-Server vereinfacht. Mit wenigen Klicks können Sie Dokumente aus Ihrem Posteingang an Ihr Dokumentenmanagementsystem senden – ganz ohne manuelles Hochladen über die Paperless-ngx-Oberfläche.
+
 <p align="center">
   <img src="icons/icon-512.png" alt="Send-to-Paperless-Icon" width="256" height="256">
 </p>
@@ -18,10 +22,6 @@
 5. Durch Rechtsklick auf eine E-Mail in der E-Mail-Liste oder Drücken des Addon-Buttons in der Symbolleiste einer E-Mail erscheint der Upload-Dialog. Hier können der Korrespondent, ein Tag, die Richtung (eingehende oder ausgehende Mail), der Timeout beim Hochladen sowie ggf. mit zu übertragende Anhänge ausgewählt werden.
 6. Nachdem eine E-Mail erfolgreich zu Paperless übertragen wurde, wird die E-Mail in Thunderbird automatisch mit dem Schlagwort "Paperless" versehen.
 
-
-## Überblick
-
-**Send to Paperless-ngx** ist ein Thunderbird-Add-on, das das Hochladen von E-Mails und deren Anhängen direkt auf Ihren [paperless-ngx](https://github.com/paperless-ngx/paperless-ngx)-Server vereinfacht. Mit wenigen Klicks können Sie Dokumente aus Ihrem Posteingang an Ihr Dokumentenmanagementsystem senden – ganz ohne manuelles Hochladen über die Paperless-ngx-Oberfläche.
 
 ---
 
