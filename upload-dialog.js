@@ -295,6 +295,7 @@ function setupEventListeners() {
   document.getElementById('cancelBtn').addEventListener('click', () => {
     window.close();
   });
+}
 
 async function handleUpload(event) {
   event.preventDefault();
@@ -362,6 +363,3 @@ async function handleUpload(event) {
     resetButtonLoading(uploadBtn, originalText);
   }
 }
-
-// Make removeTag available globally for the tag elements
-window.removeTag = removeTag;
