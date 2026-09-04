@@ -366,6 +366,10 @@ async function loadBatchEmailData() {
       message.attachmentCount > 0
     );
 
+  document.getElementById('attachmentSection').style.display = 'none';
+  document.getElementById('loadingSection').style.display = 'none';
+  document.getElementById('mainContent').style.display = 'block';
+  
   if (attachmentMessages.length > 0) {
     showWarning(
       `⚠️ ${attachmentMessages.length} von ${count} E-Mails ` +
