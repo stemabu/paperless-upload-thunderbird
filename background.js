@@ -432,9 +432,10 @@ async function openMultiEmailUploadDialog(messages) {
     for (const message of messages) {
       const attachments = (
         await browser.messages.listAttachments(message.id)
-      ).filter(attachment =>
-        (attachment.name || '').toLowerCase() !== 'smime.p7s'
-      );
+      ).filter(attachment => {
+        const name = (attachment.name || '').toLowerCase();
+        return name !== 'smime.p7s' && name !== 'smime.p7m';
+        });
 
       batchMessages.push({
         id: message.id,
@@ -510,9 +511,10 @@ async function openEmailUploadDialog(message) {
     // any attachment type since the email itself is converted to PDF
     // S/MIME signature attachment should not // appear in the attachment selection dialog.
     const attachments = (await browser.messages.listAttachments(message.id))
-       .filter(attachment =>
-         (attachment.name || '').toLowerCase() !== 'smime.p7s'
-       );
+       .filter(attachment => {
+       const name = (attachment.name || '').toLowerCase();
+       return name !== 'smime.p7s' && name !== 'smime.p7m';
+       });
 
     // Get email body (full message)
     const fullMessage = await browser.messages.getFull(message.id);
