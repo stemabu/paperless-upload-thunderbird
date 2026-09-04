@@ -219,7 +219,7 @@ function extractEmailAddress(emailString) {
 }
 
 // Find correspondent match based on email addresses
-async function findCorrespondentMatch() {
+async function findCorrespondentMatch(message = currentMessage) {
   try {
     const result = await browser.storage.sync.get('emailCorrespondentMapping');
     const mappings = result.emailCorrespondentMapping || [];
@@ -228,8 +228,13 @@ async function findCorrespondentMatch() {
       return null;
     }
     
-    const fromEmail = extractEmailAddress(currentMessage.author);
-    const toEmails = (currentMessage.recipients || []).map(r => extractEmailAddress(r));
+    if (!message) {
+      return null;
+    }
+    
+    const fromEmail = extractEmailAddress(message.author);
+    const toEmails = (message.recipients || [])
+      .map(r => extractEmailAddress(r));
     
     // Check FROM field first - if match found, it's incoming mail
     const fromMatch = mappings.find(m => m.email === fromEmail);
@@ -505,13 +510,26 @@ async function loadEmailData() {
 
 // Apply correspondent match after correspondents are loaded
 async function applyCorrespondentMatch() {
-  const match = await findCorrespondentMatch();
+  let message = currentMessage;
+
+  if (batchMode && batchMessages.length > 0) {
+    message = batchMessages[0];
+  }
+
+  const match = await findCorrespondentMatch(message);
+
   if (match) {
-    const correspondentSelect = document.getElementById('correspondent');
-    correspondentSelect.value = match.correspondentId;
-    
-    const directionSelect = document.getElementById('direction');
-    directionSelect.value = match.direction;
+    const correspondentSelect =
+      document.getElementById('correspondent');
+
+    correspondentSelect.value =
+      match.correspondentId;
+
+    const directionSelect =
+      document.getElementById('direction');
+
+    directionSelect.value =
+      match.direction;
   }
 }
 
