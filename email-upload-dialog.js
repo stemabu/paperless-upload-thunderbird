@@ -1392,14 +1392,14 @@ async function handleUpload(event) {
 
     let result;
 
-    await handleBatchUpload({
-      if (batchMode) {
-         direction,
-         pdfStrategy,
-         correspondent,
-         selectedTags,
-         processingTimeout
-       });
+    if (batchMode) {
+      await handleBatchUpload({
+        direction,
+        pdfStrategy,
+        correspondent,
+        selectedTags,
+        processingTimeout
+      });
     
       return;
     }
