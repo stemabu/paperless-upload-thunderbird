@@ -425,6 +425,40 @@ function waitForQnote(timeoutMs = 3500) {
   return qnoteReadPromise;
 }
 
+async function getOriginalSubject(messageId, fallback = '') {
+  try {
+    const rawMessage = await browser.messages.getFull(messageId, {
+      decodeHeaders: false
+    });
+
+    const rawSubject = rawMessage.headers?.subject;
+
+    if (!rawSubject) {
+      return fallback;
+    }
+
+    const decoded = await browser.messengerUtilities.decodeMimeHeader(
+      'subject',
+      rawSubject,
+      false
+    );
+
+    if (Array.isArray(decoded) && decoded.length > 0) {
+      return decoded[0];
+    }
+
+    return fallback;
+
+  } catch (error) {
+    console.warn(
+      '⚠️ Originaler Betreff konnte nicht gelesen werden:',
+      error
+    );
+
+    return fallback;
+  }
+}
+
 async function openMultiEmailUploadDialog(messages) {
   try {
     const batchMessages = [];
@@ -437,9 +471,14 @@ async function openMultiEmailUploadDialog(messages) {
         return name !== 'smime.p7s' && name !== 'smime.p7m';
         });
 
+      const originalSubject = await getOriginalSubject(
+        message.id,
+        message.subject || ''
+      );
+      
       batchMessages.push({
         id: message.id,
-        subject: message.subject || '',
+        subject: originalSubject,
         author: message.author || '',
         recipients: message.recipients || [],
         ccList: message.ccList || [],
@@ -473,7 +512,6 @@ async function openMultiEmailUploadDialog(messages) {
     );
   }
 }
-
 
 // Open email upload dialog
 async function openEmailUploadDialog(message) {
@@ -521,12 +559,10 @@ async function openEmailUploadDialog(message) {
     const emailBody = extractEmailBody(fullMessage);
 
     // Store data for the dialog to access
-    let fullSubject = message.subject;
-    if (fullMessage.headers && fullMessage.headers.subject) {
-      fullSubject = Array.isArray(fullMessage.headers.subject) 
-        ? fullMessage.headers.subject[0] 
-        : fullMessage.headers.subject;
-    }
+    const fullSubject = await getOriginalSubject(
+      message.id,
+      message.subject || ''
+    );
 
     // Wait for QNote note to be read (max 3.5 seconds)
     console.log('⏳ [Background] Waiting for QNote note...');
