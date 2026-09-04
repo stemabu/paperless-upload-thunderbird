@@ -5,7 +5,7 @@
 </p>
 <p align="center">This Addon is based on https://github.com/sebastian-xyz/paperless-upload-thunderbird, <br><b>but it was heavily customized to my personal needs</b>.</p>
 
-<p align="center"><b>Ab Version 1.0.0 funktioniert das Addon nur noch mit Paperless-ngx V3!</b></p>
+<p align="center"><b>Ab Version 1.0.0 funktioniert das Addon nur noch mit Paperless-ngx V3 und Thunderbird ab Version 140!</b></p>
 
 ---
 
@@ -34,8 +34,10 @@
 - Es ist vorgesehen, für alle E-Mails eine Richtung anzugeben ("Eingang" oder "Ausgang").
 - Möglichkeit, einen Time-Out festzulegen, falls der Server langsam arbeitet (default: 2 Minuten; 3, 4, 5, 10 Minuten).
 - Möglichkeit, die Umwandlung der E-Mail zum PDF lokal vorzunehmen und erst dann zu Paperless zu senden (kann z.B. sinnvoll sein, wenn Paperless-ngx auf einem NAS läuft).
-- Automatische Schlagwortvergabe "Paperless" in Thunderbird nach erfolgreichem Upload.
-- [in Vorbereitung:] Upload mehrerer E-Mails gleichzeitig (nur für E-Mails ohne Anhänge).
+- Automatische Schlagwortvergabe "Paperless" für die E-Mail in Thunderbird nach erfolgreichem Upload.
+- Upload mehrerer E-Mails gleichzeitig (Korrespondent, Richtung und Tag(s) dann für alle diese E-Mails gleich; eventuell vorhandene Anhänge werden in diesem Modus ignoriert).
+- Die technischen Anhänge smime.p7s und smime.p7m werden grundsätzlich ignoriert.
+- In E-Mails eingebettete Notizen des Thunderbird-Addons QNote werden beim Einzelupload mit zu Paperless-ngx übertragen.
 - Deutsche Bedienoberfläche.
 
 ---
