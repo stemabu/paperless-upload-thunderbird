@@ -434,10 +434,6 @@ async function getOriginalSubject(messageId, fallback = '') {
     const rawSubject = rawMessage.rawHeaders?.subject?.[0];
 
     if (!rawSubject) {
-      console.warn(
-        '⚠️ Kein roher Subject-Header gefunden, verwende Fallback:',
-        fallback
-      );
       return fallback;
     }
 
@@ -447,22 +443,27 @@ async function getOriginalSubject(messageId, fallback = '') {
       false
     );
 
-    if (Array.isArray(decoded) && decoded.length > 0) {
-      return decoded[0];
-    }
-    
-    if (typeof decoded === 'string') {
-      return decoded;
+    const decodedSubject = Array.isArray(decoded)
+      ? decoded[0]
+      : decoded;
+
+    console.log('RAW SUBJECT:', rawSubject);
+    console.log('DECODED SUBJECT:', decodedSubject);
+    console.log('THUNDERBIRD SUBJECT:', fallback);
+
+    if (
+      typeof decodedSubject === 'string' &&
+      /^(re|aw):\s*/i.test(decodedSubject) &&
+      !/^re:\s*/i.test(fallback)
+    ) {
+      return `Re: ${fallback}`;
     }
 
     return fallback;
 
-    console.log('RAW SUBJECT:', rawSubject);
-    console.log('DECODED SUBJECT:', decoded);
-    
   } catch (error) {
     console.warn(
-      '⚠️ Originaler Betreff konnte nicht gelesen werden:',
+      '⚠️ Betreff konnte nicht ermittelt werden:',
       error
     );
 
