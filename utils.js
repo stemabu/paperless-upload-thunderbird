@@ -298,4 +298,3 @@ if (typeof window !== 'undefined') {
   window.hasHtmlEntities = hasHtmlEntities;
   window.showWarning = showWarning;
 }
-}
