@@ -37,6 +37,20 @@ function showSuccess(message, messageAreaId = 'messageArea') {
   messageArea.appendChild(successDiv);
 }
 
+function showWarning(message, messageAreaId = 'messageArea') {
+  const messageArea = document.getElementById(messageAreaId);
+
+  if (!messageArea) {
+    console.error('Message area element not found:', messageAreaId);
+    return;
+  }
+
+  const warningDiv = document.createElement('div');
+  warningDiv.className = 'warning';
+  warningDiv.textContent = message;
+  messageArea.appendChild(warningDiv);
+}
+
 /**
  * Clear all messages from the message area
  * @param {string} messageAreaId - ID of the message area element (default: 'messageArea')
@@ -282,4 +296,6 @@ if (typeof window !== 'undefined') {
   window.makePaperlessRequest = makePaperlessRequest;
   window.decodeHtmlEntities = decodeHtmlEntities;
   window.hasHtmlEntities = hasHtmlEntities;
+  window.showWarning = showWarning;
+}
 }
