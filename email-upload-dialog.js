@@ -1,3 +1,6 @@
+let batchMode = false;
+let batchMessages = [];
+
 function formatElapsedTime(milliseconds) {
   const totalSeconds =
     Math.floor((milliseconds || 0) / 1000);
@@ -342,6 +345,36 @@ document.addEventListener('DOMContentLoaded', async function () {
   setupEventListeners();
 });
 
+async function loadBatchEmailData() {
+  const count = batchMessages.length;
+
+  document.getElementById('emailFrom').textContent =
+    `${count} E-Mails ausgewählt`;
+
+  document.getElementById('emailSubject').textContent =
+    batchMessages
+      .slice(0, 3)
+      .map(message => message.subject || '(ohne Betreff)')
+      .join(' · ') +
+    (count > 3 ? ` · … +${count - 3} weitere` : '');
+
+  document.getElementById('emailDate').textContent =
+    'Die E-Mails werden einzeln mit ihrem jeweiligen Datum verarbeitet.';
+
+  const attachmentMessages =
+    batchMessages.filter(message =>
+      message.attachmentCount > 0
+    );
+
+  if (attachmentMessages.length > 0) {
+    showWarning(
+      `⚠️ ${attachmentMessages.length} von ${count} E-Mails ` +
+      `enthalten Anhänge. Beim Mehrfach-Upload werden ` +
+      `ausschließlich die E-Mails hochgeladen; Anhänge werden ignoriert.`
+    );
+  }
+}
+
 async function loadEmailData() {
   try {
     const result = await browser.storage.local.get('emailUploadData');
@@ -353,6 +386,14 @@ async function loadEmailData() {
       return;
     }
 
+    if (uploadData.batchMode && Array.isArray(uploadData.messages)) {
+      batchMode = true;
+      batchMessages = uploadData.messages;
+
+      await loadBatchEmailData();
+      return;
+    }
+    
     currentMessage = uploadData.message;
     currentAttachments = uploadData.attachments || [];
     
@@ -1351,6 +1392,18 @@ async function handleUpload(event) {
 
     let result;
 
+    await handleBatchUpload({
+      if (batchMode) {
+         direction,
+         pdfStrategy,
+         correspondent,
+         selectedTags,
+         processingTimeout
+       });
+    
+      return;
+    }
+
     if (pdfStrategy === 'gotenberg') {
       // Upload email via direct Gotenberg API call (HTML → PDF)
       result = await browser.runtime.sendMessage({
@@ -1436,6 +1489,114 @@ async function handleUpload(event) {
   } finally {
     uploadBtn.disabled = false;
     uploadBtn.innerHTML = originalHtml;
+  }
+}
+
+async function handleBatchUpload(options) {
+  const {
+    direction,
+    pdfStrategy,
+    correspondent,
+    selectedTags,
+    processingTimeout
+  } = options;
+
+  let successCount = 0;
+  const errors = [];
+
+  for (
+    let index = 0;
+    index < batchMessages.length;
+    index++
+  ) {
+    const message = batchMessages[index];
+
+    try {
+      showUploadProgress({
+        status: 'processing',
+        documentType: 'email',
+        current: index + 1,
+        total: batchMessages.length,
+        name:
+          `E-Mail ${index + 1} von ${batchMessages.length}: ` +
+          `${message.subject || '(ohne Betreff)'}`
+      });
+
+      const documentDate = message.date
+        ? new Date(message.date).toISOString().split('T')[0]
+        : null;
+
+      let result;
+
+      if (pdfStrategy === 'gotenberg') {
+        result = await browser.runtime.sendMessage({
+          action: 'uploadEmailAsHtml',
+          messageData: message,
+
+          // Im Batch-Modus grundsätzlich keine Anhänge.
+          selectedAttachments: [],
+
+          direction,
+          correspondent,
+          tags: selectedTags,
+          documentDate,
+
+          // QNote ist bei Mehrfachauswahl nicht eindeutig zuordenbar.
+          qnoteText: null,
+          qnoteDate: null,
+
+          processingTimeout
+        });
+
+      } else {
+        // siehe nächsten Abschnitt
+        result = await uploadBatchEmailLocally(
+          message,
+          direction,
+          correspondent,
+          selectedTags,
+          documentDate,
+          processingTimeout
+        );
+      }
+
+      if (!result || !result.success) {
+        throw new Error(
+          result?.error || 'Unbekannter Upload-Fehler'
+        );
+      }
+
+      successCount++;
+
+    } catch (error) {
+      console.error(
+        `Fehler bei E-Mail ${message.id}:`,
+        error
+      );
+
+      errors.push(
+        `${message.subject || '(ohne Betreff)'}: ${error.message}`
+      );
+    }
+  }
+
+  if (selectedTags.length > 0 && successCount > 0) {
+    await saveRecentlyUsedTags(selectedTags);
+  }
+
+  if (errors.length === 0) {
+    showSuccess(
+      `${successCount} E-Mails wurden erfolgreich hochgeladen.`
+    );
+
+    closeWindowWithDelay(2500);
+
+  } else {
+    showError(
+      `${successCount} von ${batchMessages.length} E-Mails ` +
+      `wurden erfolgreich hochgeladen.\n\n` +
+      `Fehler:\n• ${errors.join('\n• ')}`
+    );
   }
 }
 
