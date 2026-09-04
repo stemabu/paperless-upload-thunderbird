@@ -447,10 +447,6 @@ async function getOriginalSubject(messageId, fallback = '') {
       ? decoded[0]
       : decoded;
 
-    console.log('RAW SUBJECT:', rawSubject);
-    console.log('DECODED SUBJECT:', decodedSubject);
-    console.log('THUNDERBIRD SUBJECT:', fallback);
-
     if (
       typeof decodedSubject === 'string' &&
       /^(re|aw):\s*/i.test(decodedSubject) &&
