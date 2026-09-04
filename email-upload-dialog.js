@@ -1409,7 +1409,6 @@ async function handleUpload(event) {
     const selectedTags = Array.from(tagsSelect.selectedOptions).map(opt => parseInt(opt.value));
 
     // Get document date from email date
-    const documentDate = currentMessage.date ? new Date(currentMessage.date).toISOString().split('T')[0] : null;
     const processingTimeout = parseInt(document.getElementById('processingTimeout').value,10);
 
     let result;
@@ -1426,6 +1425,8 @@ async function handleUpload(event) {
       return;
     }
 
+    const documentDate = currentMessage.date ? new Date(currentMessage.date).toISOString().split('T')[0] : null;
+    
     if (pdfStrategy === 'gotenberg') {
       // Upload email via direct Gotenberg API call (HTML → PDF)
       result = await browser.runtime.sendMessage({
