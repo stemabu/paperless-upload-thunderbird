@@ -370,9 +370,11 @@ async function handleEmailToPaperless(info) {
       return;
     }
 
-    // For now, just handle the first message
-    const message = messages[0];
-    await openEmailUploadDialog(message);
+   if (messages.length === 1) {
+     await openEmailUploadDialog(messages[0]);
+   } else {
+     await openMultiEmailUploadDialog(messages);
+   }
 
   } catch (error) {
     console.error("Error handling email to Paperless:", error);
@@ -422,6 +424,55 @@ function waitForQnote(timeoutMs = 3500) {
 
   return qnoteReadPromise;
 }
+
+async function openMultiEmailUploadDialog(messages) {
+  try {
+    const batchMessages = [];
+
+    for (const message of messages) {
+      const attachments = (
+        await browser.messages.listAttachments(message.id)
+      ).filter(attachment =>
+        (attachment.name || '').toLowerCase() !== 'smime.p7s'
+      );
+
+      batchMessages.push({
+        id: message.id,
+        subject: message.subject || '',
+        author: message.author || '',
+        recipients: message.recipients || [],
+        ccList: message.ccList || [],
+        date: message.date,
+        tags: message.tags || [],
+        attachmentCount: attachments.length
+      });
+    }
+
+    await browser.storage.local.set({
+      emailUploadData: {
+        batchMode: true,
+        messages: batchMessages
+      }
+    });
+
+    const dialogUrl =
+      browser.runtime.getURL("email-upload-dialog.html");
+
+    await createCenteredWindow(dialogUrl, 550, 1000);
+
+  } catch (error) {
+    console.error(
+      "❌ [Background] Error opening batch email upload dialog:",
+      error
+    );
+
+    showNotification(
+      "Fehler beim Öffnen des Mehrfach-Uploads",
+      "error"
+    );
+  }
+}
+
 
 // Open email upload dialog
 async function openEmailUploadDialog(message) {
