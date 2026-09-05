@@ -353,35 +353,44 @@ document.addEventListener('DOMContentLoaded', async function () {
 async function loadBatchEmailData() {
   const count = batchMessages.length;
 
-  document.getElementById('emailFrom').textContent =
-    `${count} E-Mails ausgewählt`;
+  document.getElementById('singleEmailSummary').style.display = 'none';
+  document.getElementById('batchSummary').style.display = 'block';
 
-  document.getElementById('emailSubject').textContent =
-    batchMessages
-      .slice(0, 3)
-      .map(message => message.subject || '(ohne Betreff)')
-      .join(' · ') +
-    (count > 3 ? ` · … +${count - 3} weitere` : '');
+  document.getElementById('batchCount').textContent =
+    `${count} E-Mails werden verarbeitet`;
 
-  document.getElementById('emailDate').textContent =
-    'Die E-Mails werden einzeln mit ihrem jeweiligen Datum verarbeitet.';
+  const sendersList = document.getElementById('batchSenders');
+  sendersList.innerHTML = '';
+
+  batchMessages.forEach(message => {
+    const li = document.createElement('li');
+    li.textContent = message.author || '(kein Absender)';
+    sendersList.appendChild(li);
+  });
+
+  const subjectsList = document.getElementById('batchSubjects');
+  subjectsList.innerHTML = '';
+
+  batchMessages.forEach(message => {
+    const li = document.createElement('li');
+    li.textContent = message.subject || '(ohne Betreff)';
+    subjectsList.appendChild(li);
+  });
 
   const attachmentMessages =
-    batchMessages.filter(message =>
-      message.attachmentCount > 0
+    batchMessages.filter(message => message.attachmentCount > 0);
+
+  if (attachmentMessages.length > 0) {
+    showWarning(
+      `⚠️ ${attachmentMessages.length} von ${count} E-Mails enthalten Anhänge. ` +
+      `Beim Mehrfach-Upload werden ausschließlich die E-Mails hochgeladen; ` +
+      `Anhänge werden ignoriert.`
     );
+  }
 
   document.getElementById('attachmentSection').style.display = 'none';
   document.getElementById('loadingSection').style.display = 'none';
   document.getElementById('mainContent').style.display = 'block';
-  
-  if (attachmentMessages.length > 0) {
-    showWarning(
-      `⚠️ ${attachmentMessages.length} von ${count} E-Mails ` +
-      `enthalten Anhänge. Beim Mehrfach-Upload werden ` +
-      `ausschließlich die E-Mails hochgeladen; Anhänge werden ignoriert.`
-    );
-  }
 }
 
 async function loadEmailData() {
