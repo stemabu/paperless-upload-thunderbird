@@ -30,11 +30,11 @@
 - Hochladen von E-Mails und/oder Anhängen direkt in Paperless-ngx.
 - Sichere, lokale Verarbeitung – keine Server von Drittanbietern.
 - Eine hochgeladene E-Mail wird automatisch innerhalb von Paperless über die Funktion "dazugehörige Dokumente" mit den hochgeladenen Anhängen verknüpft und vice versa. Zusätzlich erfolgt eine Verknüpfung der Anhänge untereinander.
-- Optional können in den Optionen Beziehungen zwischen E-Mail-Adressen und Korrespondenten erstellt werden, die dann im Upload-Dialog vorausgewählt werden.
+- Optional können in den Optionen des Addons Beziehungen zwischen E-Mail-Adressen und Korrespondenten erstellt werden, die dann im Upload-Dialog vorausgewählt werden.
 - Es ist vorgesehen, für alle E-Mails eine Richtung anzugeben ("Eingang" oder "Ausgang").
 - Möglichkeit, einen Time-Out festzulegen, falls der Server langsam arbeitet (default: 2 Minuten; 3, 4, 5, 10 Minuten).
 - Möglichkeit, die Umwandlung der E-Mail zum PDF lokal vorzunehmen und erst dann zu Paperless zu senden (kann z.B. sinnvoll sein, wenn Paperless-ngx auf einem NAS läuft).
-- Automatische Schlagwortvergabe "Paperless" für die E-Mail in Thunderbird nach erfolgreichem Upload.
+- Automatische Schlagwortvergabe "Paperless" für die verarbeitete(n) E-Mail(s) in Thunderbird nach erfolgreichem Upload.
 - Upload mehrerer E-Mails gleichzeitig (Korrespondent, Richtung und Tag(s) dann für alle diese E-Mails gleich; eventuell vorhandene Anhänge werden in diesem Modus ignoriert).
 - Die technischen Anhänge smime.p7s und smime.p7m werden grundsätzlich ignoriert.
 - In E-Mails eingebettete Notizen des Thunderbird-Addons QNote werden beim Einzelupload mit zu Paperless-ngx übertragen.
