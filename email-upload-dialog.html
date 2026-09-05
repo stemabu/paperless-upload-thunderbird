@@ -328,7 +328,17 @@
        background: #d4edda;
        color: #155724;
        border-left-color: #28a745;
+      
+    #batchSummary ul {
+       margin: 6px 0 0 20px;
+       padding: 0;
+       }
+      
+    #batchSummary li {
+       margin-bottom: 4px;
+      }
     }
+    
   </style>
 </head>
 
@@ -344,8 +354,26 @@
     <div id="loadingSection" class="loading">
       <p>E-Mail-Daten werden geladen...</p>
     </div>
-
+    
     <div id="mainContent" style="display: none;">
+  
+      <div id="batchSummary" style="display: none;">
+        <div class="form-group">
+          <strong id="batchCount"></strong>
+        </div>
+      
+        <div class="form-group">
+          <label>Von</label>
+          <ul id="batchSenders"></ul>
+        </div>
+      
+        <div class="form-group">
+          <label>Betreff</label>
+          <ul id="batchSubjects"></ul>
+        </div>
+      </div>      
+      
+      <div id="singleEmailSummary">
       <div class="email-info">
         <h3>📧 E-Mail-Informationen</h3>
         <div class="email-info-row"><strong>Von:</strong> <span id="emailFrom"></span></div>
@@ -358,7 +386,8 @@
           <strong>📝 Notiz (QNote):</strong> <span id="emailQnote" class="qnote-value"></span>
         </div>
       </div>
-
+      </div>
+        
       <form id="emailUploadForm">
         <div class="checkbox-group disabled">
           <input type="checkbox" id="saveEmailAsPdf" checked disabled>
